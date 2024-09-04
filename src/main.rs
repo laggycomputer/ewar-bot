@@ -15,10 +15,12 @@ use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
 use mongodb::bson::doc;
+use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {
     mongo: Database,
+    postgres: tokio_postgres::Client,
 }
 
 #[tokio::main]
@@ -50,6 +52,8 @@ async fn main() {
 
     let mongo_uri = config_doc["creds"]["mongo"]["uri"].as_str().expect("bad mongo uri").to_string();
     let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad mongo db").to_string();
+
+    let postgres_uri = config_doc["creds"]["postgres"].as_str().expect("bad postgres uri").to_string();
 
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
@@ -83,8 +87,17 @@ async fn main() {
                 mongo.run_command(doc! { "ping": 1 }).await?;
                 println!("mongo ok");
 
+                let (pg_client, pg_conn) = tokio_postgres::connect(&*postgres_uri, NoTls).await?;
+                tokio::spawn(async move {
+                    if let Err(e) = pg_conn.await {
+                        eprintln!("postgres is complaining: {}", e);
+                    }
+                });
+                println!("postgres ok");
+
                 Ok(BotVars {
                     mongo,
+                    postgres: pg_client,
                 })
             })
         })
