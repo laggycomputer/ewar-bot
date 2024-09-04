@@ -1,16 +1,3 @@
-CREATE TABLE IF NOT EXISTS blacklist
-(
-    user_id BIGINT UNIQUE PRIMARY KEY NOT NULL,
-    mod_id  BIGINT                    NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS guilds
-(
-    guild_id           BIGINT UNIQUE PRIMARY KEY NOT NULL,
-    prefix             VARCHAR(10),
-    custom_dollar_sign VARCHAR(30)
-);
-
 CREATE TABLE IF NOT EXISTS players
 (
     guild_id    BIGINT       NOT NULL,
