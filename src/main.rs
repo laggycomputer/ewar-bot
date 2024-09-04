@@ -3,7 +3,6 @@ mod util;
 mod commands;
 
 use crate::commands::meta::ping;
-use clap::builder::TypedValueParser;
 use clap::ValueHint;
 use itertools::Itertools;
 use pluralizer::pluralize;
