@@ -590,6 +590,7 @@ dependencies = [
  "poise",
  "serde",
  "serenity",
+ "skillratings",
  "tokio",
  "tokio-postgres",
  "yaml-rust2",
@@ -2002,6 +2003,12 @@ dependencies = [
  "tempfile",
  "walkdir",
 ]
+
+[[package]]
+name = "skillratings"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6fdddfb9a6fbecfe43d3d26837f364258f089e7e2ba8b90098b0a42d566feb9"
 
 [[package]]
 name = "slab"
