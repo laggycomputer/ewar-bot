@@ -6,10 +6,11 @@ use crate::commands::meta::ping;
 use clap::ValueHint;
 use itertools::Itertools;
 use pluralizer::pluralize;
-use poise::FrameworkOptions;
+use poise::{FrameworkOptions, PrefixFrameworkOptions};
 use serenity::all::GatewayIntents;
 use serenity::all::GuildId;
 use serenity::Client;
+use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
 use yaml_rust2::YamlLoader;
@@ -46,6 +47,10 @@ async fn main() {
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
             commands: vec![ping()],
+            prefix_options: PrefixFrameworkOptions {
+                mention_as_prefix: true,
+                ..Default::default()
+            },
             ..Default::default()
         })
         .setup(move |ctx, _ready, framework| {
