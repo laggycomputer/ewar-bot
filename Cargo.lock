@@ -588,6 +588,7 @@ dependencies = [
  "mongodb",
  "pluralizer",
  "poise",
+ "rand",
  "serde",
  "serenity",
  "skillratings",

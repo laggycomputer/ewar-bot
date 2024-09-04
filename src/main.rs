@@ -6,6 +6,7 @@ mod model;
 use crate::commands::meta::ping;
 use clap::ValueHint;
 use itertools::Itertools;
+use mongodb::bson::doc;
 use mongodb::Database;
 use pluralizer::pluralize;
 use poise::{FrameworkOptions, PrefixFrameworkOptions};
@@ -15,7 +16,6 @@ use serenity::Client;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
-use mongodb::bson::doc;
 use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
