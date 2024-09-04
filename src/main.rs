@@ -36,11 +36,11 @@ async fn main() {
         &*fs::read_to_string(config_path).expect("can't open config file")
     ).expect("can't parse config file")[0];
 
-    let register_globally = config_doc["register_commands"]["global"].as_bool().expect("bad config spec");
-    let guilds_to_register_in = if config_doc["register_commands"]["local"]["enabled"].as_bool().expect("bad config spec") {
+    let register_globally = config_doc["register_commands"]["global"].as_bool().expect("bad global register setting");
+    let guilds_to_register_in = if config_doc["register_commands"]["local"]["enabled"].as_bool().expect("bad local register setting") {
         config_doc["register_commands"]["local"]["guilds"].as_vec().iter().map(|id|
             GuildId::from(
-                id[0].as_str().expect("bad config spec")
+                id[0].as_str().expect("bad register guild id")
                     .parse::<u64>().expect("guild id not valid snowflake")
             )
         ).collect_vec()
@@ -48,8 +48,8 @@ async fn main() {
         vec![]
     };
 
-    let mongo_uri = config_doc["creds"]["mongo"]["uri"].as_str().expect("bad config spec").to_string();
-    let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad config spec").to_string();
+    let mongo_uri = config_doc["creds"]["mongo"]["uri"].as_str().expect("bad mongo uri").to_string();
+    let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad mongo db").to_string();
 
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
