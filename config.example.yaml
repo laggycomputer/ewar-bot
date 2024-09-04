@@ -1,0 +1,10 @@
+token: ""
+register_commands:
+  global: true,
+  local:
+    enabled: false,
+    guilds:
+      -
+
+creds:
+  postgres: ""

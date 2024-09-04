@@ -4,7 +4,8 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-dotenv = "0.15.0"
 poise = "0.6.1"
 serenity = "0.12"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+yaml-rust2 = "0.8.1"
+clap = { version = "4.5.16", features = ["cargo"] }
