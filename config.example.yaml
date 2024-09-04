@@ -1,8 +1,8 @@
 token: ""
 register_commands:
-  global: true,
+  global: true
   local:
-    enabled: false,
+    enabled: false
     guilds:
       -
 
