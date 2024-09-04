@@ -2,16 +2,17 @@ mod handler;
 mod util;
 mod commands;
 
+use crate::commands::meta::ping;
 use clap::builder::TypedValueParser;
 use clap::ValueHint;
 use itertools::Itertools;
+use pluralizer::pluralize;
 use poise::FrameworkOptions;
 use serenity::all::GatewayIntents;
 use serenity::all::GuildId;
 use serenity::Client;
 use std::fs;
 use std::path::PathBuf;
-use pluralizer::pluralize;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {}
@@ -45,7 +46,7 @@ async fn main() {
 
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
-            commands: vec![],
+            commands: vec![ping()],
             ..Default::default()
         })
         .setup(move |ctx, _ready, framework| {
