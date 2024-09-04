@@ -2,14 +2,16 @@ mod handler;
 mod util;
 mod commands;
 
-use crate::commands::meta::ping;
+use clap::builder::TypedValueParser;
 use clap::ValueHint;
+use itertools::Itertools;
 use poise::FrameworkOptions;
 use serenity::all::GatewayIntents;
 use serenity::all::GuildId;
 use serenity::Client;
 use std::fs;
 use std::path::PathBuf;
+use pluralizer::pluralize;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {}
@@ -29,17 +31,38 @@ async fn main() {
         &*fs::read_to_string(config_path).expect("can't open config file")
     ).expect("can't parse config file")[0];
 
+    let register_globally = config_doc["register_commands"]["global"].as_bool().expect("bad config spec");
+    let guilds_to_register_in = if config_doc["register_commands"]["local"]["enabled"].as_bool().expect("bad config spec") {
+        config_doc["register_commands"]["local"]["guilds"].as_vec().iter().map(|id|
+            GuildId::from(
+                id[0].as_str().expect("bad config spec")
+                    .parse::<u64>().expect("guild id not valid snowflake")
+            )
+        ).collect_vec()
+    } else {
+        vec![]
+    };
+
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
-            commands: vec![ping()],
+            commands: vec![],
             ..Default::default()
         })
-        .setup(|ctx, _ready, framework| {
+        .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                println!("registered commands globally");
-                poise::builtins::register_in_guild(ctx, &framework.options().commands, GuildId::from(576979941304827954)).await?;
-                println!("registered commands locally");
+                if register_globally {
+                    poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                    println!("registered commands globally");
+                } else {
+                    println!("not registering commands globally")
+                }
+
+                if !guilds_to_register_in.is_empty() {
+                    for id in guilds_to_register_in.iter() {
+                        poise::builtins::register_in_guild(ctx, &framework.options().commands, *id).await?;
+                    }
+                    println!("registered commands locally in {}", pluralize("guild", guilds_to_register_in.len() as isize, true));
+                }
                 Ok(BotVars {})
             })
         })
