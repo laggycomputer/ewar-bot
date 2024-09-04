@@ -8,3 +8,6 @@ register_commands:
 
 creds:
   postgres: ""
+  mongo:
+    uri: ""
+    db: ""

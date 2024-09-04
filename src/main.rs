@@ -5,6 +5,7 @@ mod commands;
 use crate::commands::meta::ping;
 use clap::ValueHint;
 use itertools::Itertools;
+use mongodb::Database;
 use pluralizer::pluralize;
 use poise::{FrameworkOptions, PrefixFrameworkOptions};
 use serenity::all::GatewayIntents;
@@ -13,9 +14,12 @@ use serenity::Client;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
+use mongodb::bson::doc;
 use yaml_rust2::YamlLoader;
 
-struct BotVars {}
+struct BotVars {
+    mongo: Database,
+}
 
 #[tokio::main]
 async fn main() {
@@ -44,6 +48,9 @@ async fn main() {
         vec![]
     };
 
+    let mongo_uri = config_doc["creds"]["mongo"]["uri"].as_str().expect("bad config spec").to_string();
+    let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad config spec").to_string();
+
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
             commands: vec![ping()],
@@ -68,7 +75,15 @@ async fn main() {
                     }
                     println!("registered commands locally in {}", pluralize("guild", guilds_to_register_in.len() as isize, true));
                 }
-                Ok(BotVars {})
+
+                let mongo = mongodb::Client::with_uri_str(mongo_uri).await?
+                    .database(&*mongo_db);
+                mongo.run_command(doc! { "ping": 1 }).await?;
+                println!("mongo ok");
+
+                Ok(BotVars {
+                    mongo,
+                })
             })
         })
         .build();

@@ -11,3 +11,6 @@ yaml-rust2 = "0.8.1"
 clap = { version = "4.5.16", features = ["cargo"] }
 itertools = "0.13.0"
 pluralizer = "0.4.0"
+serde = "1.0.188"
+futures = "0.3.28"
+mongodb = "3.1.0"
