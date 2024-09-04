@@ -62,18 +62,20 @@ async fn main() {
         })
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
+                let commands_count = pluralize("command", framework.options().commands.len() as isize, true);
+
                 if register_globally {
                     poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                    println!("registered commands globally");
+                    println!("registered {commands_count} globally");
                 } else {
-                    println!("not registering commands globally")
+                    println!("not registering {commands_count} globally");
                 }
 
                 if !guilds_to_register_in.is_empty() {
                     for id in guilds_to_register_in.iter() {
                         poise::builtins::register_in_guild(ctx, &framework.options().commands, *id).await?;
                     }
-                    println!("registered commands locally in {}", pluralize("guild", guilds_to_register_in.len() as isize, true));
+                    println!("registered {commands_count} locally in {}", pluralize("guild", guilds_to_register_in.len() as isize, true));
                 }
 
                 let mongo = mongodb::Client::with_uri_str(mongo_uri).await?
