@@ -33,12 +33,14 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
                 table.add_row(Row::new(
                     (0..row.len())
                         .map(|ind| {
-                            prettytable::Cell::new(&(match row.columns()[ind].type_() {
+                            let col_type = row.columns()[ind].type_();
+                            prettytable::Cell::new(&(match col_type {
                                 &Type::VARCHAR => row.get::<usize, String>(ind),
                                 &Type::INT8 => row.get::<usize, i64>(ind).to_string(),
                                 &Type::INT4 => row.get::<usize, i32>(ind).to_string(),
                                 &Type::INT2 => row.get::<usize, i16>(ind).to_string(),
-                                _ => String::from("please learn how to print me")
+                                &Type::BOOL => row.get::<usize, bool>(ind).to_string(),
+                                _ => String::from(format!("type {col_type} not yet implemented for printing"))
                             })
                                 .into_boxed_str()) })
                         .collect_vec()
