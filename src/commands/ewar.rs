@@ -1,3 +1,4 @@
+use crate::util::remove_markdown;
 use crate::{BotError, Context};
 use serenity::all::User;
 
@@ -22,6 +23,46 @@ async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
     match conn.query_opt(&prepared, &[&(user.id.get() as i64)]).await? {
         None => ctx.reply("could not find that player").await?,
         Some(row) => todo!()
+    };
+
+    Ok(())
+}
+
+#[poise::command(slash_command, prefix_command)]
+pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(), BotError> {
+    let mut conn = ctx.data().postgres.get().await?;
+
+    match conn.query_opt(
+        "SELECT player_discord.player_id, player_name FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
+        &[&(ctx.author().id.get() as i64)]).await? {
+        Some(row) => {
+            ctx.reply(format!(
+                "cannot bind your discord to a second user (currently bound to user {}, ID {})",
+                remove_markdown(row.get::<&str, String>("player_name")),
+                row.get::<&str, u32>("player_discord")
+            )).await?;
+        }
+        None => {
+            if desired_name.len() > 100 {
+                ctx.reply("name too long, sorry").await?;
+                return Ok(());
+            }
+
+            else if !desired_name.is_ascii() {
+                ctx.reply("ascii only, sorry").await?;
+                return Ok(());
+            }
+
+            let trans = conn.build_transaction()
+                .deferrable(true)
+                .start().await?;
+
+            let new_id: i32 = trans.query_one("INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;", &[&desired_name]).await?.get("player_id");
+            trans.execute("INSERT INTO player_discord (player_id, discord_user_id) VALUES ($1, $2);", &[&new_id, &(ctx.author().id.get() as i64)]).await?;
+            trans.commit().await?;
+
+            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(desired_name), new_id)).await?;
+        }
     };
 
     Ok(())
