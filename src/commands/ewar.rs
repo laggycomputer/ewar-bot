@@ -1,5 +1,7 @@
-use crate::util::remove_markdown;
+use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
+use itertools::Itertools;
+use poise::CreateReply;
 use serenity::all::User;
 
 /// Look up a user in the database
@@ -15,15 +17,26 @@ async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
 
     let conn = ctx.data().postgres.get().await?;
 
-    let prepared = conn.prepare_typed(
-        "SELECT * FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
-        &[tokio_postgres::types::Type::INT8],
-    ).await?;
+    let rows = conn.query(
+        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
+        ON players.player_id = player_discord.player_id \
+        WHERE player_discord.discord_user_id = $1::BIGINT;",
+        &[&(user.id.get() as i64)]).await?;
+    if rows.is_empty() {
+        ctx.reply("could not find that player").await?;
+        return Ok(());
+    }
 
-    match conn.query_opt(&prepared, &[&(user.id.get() as i64)]).await? {
-        None => ctx.reply("could not find that player").await?,
-        Some(row) => todo!()
-    };
+    let mut assoc_accounts = rows.iter().map(|row| format!("<@{}>", row.get::<&str, i64>("discord_user_id"))).join(", ");
+    if assoc_accounts.is_empty() {
+        assoc_accounts = String::from("<none>")
+    }
+
+    ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .field("user", format!("{} (ID {})", remove_markdown(rows[0].get::<&str, String>("player_name")), rows[0].get::<&str, i32>("player_id")), true)
+            .field("rating stuff", "todo", true)
+            .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
 
     Ok(())
 }
@@ -46,9 +59,7 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
             if desired_name.len() > 100 {
                 ctx.reply("name too long, sorry").await?;
                 return Ok(());
-            }
-
-            else if !desired_name.is_ascii() {
+            } else if !desired_name.is_ascii() {
                 ctx.reply("ascii only, sorry").await?;
                 return Ok(());
             }
