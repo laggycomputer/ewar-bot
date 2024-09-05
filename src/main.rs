@@ -16,12 +16,13 @@ use serenity::Client;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
+use std::str::FromStr;
 use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {
     mongo: Database,
-    postgres: tokio_postgres::Client,
+    postgres: deadpool_postgres::Pool,
 }
 
 #[tokio::main]
@@ -63,6 +64,7 @@ async fn main() {
                 meta::git(),
                 maint::sql(),
                 ewar::lookup(),
+                ewar::register(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 mention_as_prefix: true,
@@ -95,17 +97,17 @@ async fn main() {
                 mongo.run_command(doc! { "ping": 1 }).await?;
                 println!("mongo ok");
 
-                let (pg_client, pg_conn) = tokio_postgres::connect(&*postgres_uri, NoTls).await?;
-                tokio::spawn(async move {
-                    if let Err(e) = pg_conn.await {
-                        eprintln!("postgres is complaining: {}", e);
-                    }
-                });
+                let pg_config = tokio_postgres::Config::from_str(&*postgres_uri)?;
+                let mgr_config = deadpool_postgres::ManagerConfig {
+                    recycling_method: deadpool_postgres::RecyclingMethod::Fast,
+                };
+                let mgr = deadpool_postgres::Manager::from_config(pg_config, NoTls, mgr_config);
+                let pg_pool = deadpool_postgres::Pool::builder(mgr).max_size(16).build().unwrap();
                 println!("postgres ok");
 
                 Ok(BotVars {
                     mongo,
-                    postgres: pg_client,
+                    postgres: pg_pool,
                 })
             })
         })

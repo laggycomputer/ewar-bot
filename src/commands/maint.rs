@@ -6,8 +6,10 @@ use tokio_postgres::types::Type;
 
 #[poise::command(slash_command, prefix_command, owners_only)]
 pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError> {
+    let conn = ctx.data().postgres.get().await?;
+
     let start = Instant::now();
-    let result = ctx.data().postgres.query(&query, &[]).await;
+    let result = conn.query(&query, &[]).await;
     let elapsed = start.elapsed();
 
     match result {
@@ -42,7 +44,8 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
                                 &Type::BOOL => row.get::<usize, bool>(ind).to_string(),
                                 _ => String::from(format!("type {col_type} not yet implemented for printing"))
                             })
-                                .into_boxed_str()) })
+                                .into_boxed_str())
+                        })
                         .collect_vec()
                 ));
             });

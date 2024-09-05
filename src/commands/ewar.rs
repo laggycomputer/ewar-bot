@@ -12,12 +12,14 @@ pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
 async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
     let user = user.as_ref().unwrap_or(ctx.author());
 
-    let prepared = ctx.data().postgres.prepare_typed(
+    let conn = ctx.data().postgres.get().await?;
+
+    let prepared = conn.prepare_typed(
         "SELECT * FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
         &[tokio_postgres::types::Type::INT8],
     ).await?;
 
-    match ctx.data().postgres.query_opt(&prepared, &[&(user.id.get() as i64)]).await? {
+    match conn.query_opt(&prepared, &[&(user.id.get() as i64)]).await? {
         None => ctx.reply("could not find that player").await?,
         Some(row) => todo!()
     };
