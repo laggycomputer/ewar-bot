@@ -24,16 +24,18 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
 
         let walk = repo.rev_walk([repo.head_id()?]).first_parent_only().all()?
             .take(6)
-            .map(|commit| {
-                let commit = commit.unwrap();
-                let commit_id = commit.id;
-                let found = repo.find_commit(commit_id).unwrap();
-                let decoded = found.decode().unwrap();
-                (commit_id.to_hex().to_string(), decoded.message().title.to_string(), decoded.author.time.seconds)
-            })
             .collect_vec();
 
-        walk
+        let mut ret = Vec::with_capacity(6);
+        for commit in walk {
+            let commit = commit?;
+            let commit_id = commit.id;
+            let found = repo.find_commit(commit_id)?;
+            let decoded = found.decode()?;
+            ret.push((commit_id.to_hex().to_string(), decoded.message().title.to_string(), decoded.author.time.seconds));
+        }
+
+        ret
     };
 
     let mut time_formatter = timeago::Formatter::new();
