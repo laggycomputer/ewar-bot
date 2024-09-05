@@ -3,7 +3,7 @@ mod util;
 mod commands;
 mod model;
 
-use crate::commands::meta::{git, ping};
+use crate::commands::{ewar, maint, meta};
 use clap::ValueHint;
 use itertools::Itertools;
 use mongodb::bson::doc;
@@ -59,8 +59,10 @@ async fn main() {
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
             commands: vec![
-                ping(),
-                git(),
+                meta::ping(),
+                meta::git(),
+                maint::sql(),
+                ewar::lookup(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 mention_as_prefix: true,
