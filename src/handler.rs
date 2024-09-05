@@ -34,7 +34,7 @@ impl EventHandler for EWarBotHandler {
             loop {
                 ctx.shard.set_presence(
                     Some(ActivityData {
-                        name: String::from(""),
+                        name: String::from("bazinga"),
                         kind: ActivityType::Custom,
 
                         state: Some(String::from(*status.choose(&mut rand::thread_rng()).unwrap())),
