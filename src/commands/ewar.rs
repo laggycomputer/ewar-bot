@@ -100,10 +100,14 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
             )).await?;
         }
         None => {
+            if conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&desired_name.as_str()]).await?.is_some() {
+                ctx.reply("user by that name already exists").await?;
+                return Ok(());
+            }
+
             let valid_pattern = RegexBuilder::new(r"^[a-z\d_.]{1,32}$")
                 .case_insensitive(true)
-                .build()
-                .unwrap();
+                .build().unwrap();
 
             if desired_name.len() > 32 {
                 ctx.reply("name too long, sorry").await?;
