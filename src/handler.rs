@@ -10,7 +10,7 @@ pub(crate) struct EWarBotHandler;
 #[async_trait]
 impl EventHandler for EWarBotHandler {
     async fn message(&self, ctx: Context, msg: Message) {
-        println!("{}", msg.content);
+        // println!("{}", msg.content);
     }
 
     async fn ready(&self, ctx: Context, ready_info: Ready) {
