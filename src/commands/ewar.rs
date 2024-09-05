@@ -28,6 +28,8 @@ async fn lookup_result(ctx: Context<'_>, rows: Vec<Row>) -> Result<(), BotError>
 /// Look up a user in the database
 #[poise::command(slash_command, prefix_command, subcommands("user", "name", "id"))]
 pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.reply("base command is noop, try a subcommand").await?;
+
     Ok(())
 }
 
