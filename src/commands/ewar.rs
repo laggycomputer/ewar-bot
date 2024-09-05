@@ -7,7 +7,7 @@ use tokio_postgres::Row;
 
 
 /// shared postlude to every lookup method; just show the user
-async fn lookup_result(ctx: Context, rows: Vec<Row>) -> Result<(), BotError> {
+async fn lookup_result(ctx: Context<'_>, rows: Vec<Row>) -> Result<(), BotError> {
     let mut assoc_accounts = rows.iter().map(|row| format!("<@{}>", row.get::<&str, i64>("discord_user_id"))).join(", ");
     if assoc_accounts.is_empty() {
         assoc_accounts = String::from("<none>")
@@ -25,11 +25,10 @@ async fn lookup_result(ctx: Context, rows: Vec<Row>) -> Result<(), BotError> {
 }
 
 /// Look up a user in the database
-#[poise::command(slash_command, prefix_command, subcommands("user"))]
+#[poise::command(slash_command, prefix_command, subcommands("user", "name", "id"))]
 pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
     Ok(())
 }
-
 
 /// defaults to you; look up a player by discord user
 #[poise::command(slash_command, prefix_command)]
@@ -50,6 +49,39 @@ async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
     lookup_result(ctx, rows).await
 }
 
+/// look up a player by handle
+#[poise::command(slash_command, prefix_command)]
+async fn name(ctx: Context<'_>, handle: String) -> Result<(), BotError> {
+    let conn = ctx.data().postgres.get().await?;
+
+    let rows = conn.query(
+        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
+        ON players.player_id = player_discord.player_id WHERE player_name = $1;",
+        &[&handle]).await?;
+    if rows.is_empty() {
+        ctx.reply("could not find player by that handle").await?;
+        return Ok(());
+    }
+
+    lookup_result(ctx, rows).await
+}
+
+/// look up a player by database ID
+#[poise::command(slash_command, prefix_command)]
+async fn id(ctx: Context<'_>, id: i32) -> Result<(), BotError> {
+    let conn = ctx.data().postgres.get().await?;
+
+    let rows = conn.query(
+        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
+        ON players.player_id = player_discord.player_id WHERE players.player_id = $1;",
+        &[&id]).await?;
+    if rows.is_empty() {
+        ctx.reply("could not find player by that ID").await?;
+        return Ok(());
+    }
+
+    lookup_result(ctx, rows).await
+}
 
 #[poise::command(slash_command, prefix_command)]
 pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(), BotError> {
