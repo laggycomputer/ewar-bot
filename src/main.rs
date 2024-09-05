@@ -3,7 +3,7 @@ mod util;
 mod commands;
 mod model;
 
-use crate::commands::meta::ping;
+use crate::commands::meta::{git, ping};
 use clap::ValueHint;
 use itertools::Itertools;
 use mongodb::bson::doc;
@@ -58,7 +58,10 @@ async fn main() {
 
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
-            commands: vec![ping()],
+            commands: vec![
+                ping(),
+                git(),
+            ],
             prefix_options: PrefixFrameworkOptions {
                 mention_as_prefix: true,
                 ..Default::default()
