@@ -3,7 +3,10 @@ use crate::{BotError, Context};
 use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
-use serenity::all::User;
+use serenity::all::{CreateActionRow, CreateButton, Mentionable, ReactionType, User};
+use std::collections::HashSet;
+use std::convert::identity;
+use std::time::Duration;
 use tokio_postgres::Row;
 
 
@@ -137,6 +140,68 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
             ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(desired_name), new_id)).await?;
         }
     };
+
+    Ok(())
+}
+
+/// Log a completed game with placement
+#[poise::command(prefix_command, slash_command)]
+pub(crate) async fn postgame(ctx: Context<'_>,
+                             user1: User, user2: User, user3: Option<User>, user4: Option<User>, user5: Option<User>,
+                             user6: Option<User>, user7: Option<User>, user8: Option<User>, user9: Option<User>, user10: Option<User>) -> Result<(), BotError> {
+    let placement = vec![
+        Some(user1), Some(user2), user3, user4, user5,
+        user6, user7, user8, user9, user10
+    ].into_iter().filter_map(identity).collect_vec();
+
+    if placement.iter().all(|u| u != ctx.author()) {
+        ctx.reply(":x: you must be a party to a game to log it").await?;
+        return Ok(());
+    }
+
+    if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
+        ctx.reply(":x: same user given twice; each player has exactly one ranking!").await?;
+        return Ok(());
+    }
+
+    let conn = ctx.data().postgres.get().await?;
+    let mut participants_friendly: Vec<(&User, String, i32)> = Vec::with_capacity(placement.len());
+    for user in placement.iter() {
+        match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
+        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
+            None => {
+                ctx.send(CreateReply::default()
+                    .embed(base_embed(ctx)
+                        .description(format!("{} has no account on this bot", user.mention())))).await?;
+                return Ok(());
+            }
+            Some(row) => {
+                participants_friendly.push((user, row.get("player_name"), row.get("player_id")));
+            }
+        };
+    }
+
+    let msg = ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .description(format!(
+                "you are logging a game with the following result:\n{}\n\nplease click below if this is what you meant (10s timeout)",
+                participants_friendly.iter().enumerate()
+                    .map(|(index, (discord_user, handle, id))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
+                    .join("\n"))))
+        .components(vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")))])])).await?;
+
+    let waited = msg.into_message().await?.await_component_interaction(&ctx.serenity_context().shard)
+        .author_id(ctx.author().id)
+        .custom_ids(vec![String::from("postgame_confirm_initial")])
+        .timeout(Duration::from_secs(10)).await;
+
+    if waited.is_none() {
+        return Ok(())
+    }
+
+    todo!();
 
     Ok(())
 }

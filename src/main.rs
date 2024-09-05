@@ -65,6 +65,7 @@ async fn main() {
                 maint::sql(),
                 ewar::lookup(),
                 ewar::register(),
+                ewar::postgame(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 mention_as_prefix: true,
