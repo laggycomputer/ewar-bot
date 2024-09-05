@@ -5,6 +5,7 @@ use gix::ThreadSafeRepository;
 use itertools::Itertools;
 use poise::CreateReply;
 
+/// Check bot is alive, get numerical ping to Discord
 #[poise::command(slash_command, prefix_command)]
 pub(crate) async fn ping(ctx: Context<'_>) -> Result<(), BotError> {
     let ping_num = ctx.ping().await.as_millis();
@@ -15,6 +16,7 @@ pub(crate) async fn ping(ctx: Context<'_>) -> Result<(), BotError> {
     Ok(())
 }
 
+/// See recent Git commits to the bot
 #[poise::command(slash_command, prefix_command)]
 pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
     let recents = {
