@@ -7,7 +7,7 @@ use poise::CreateReply;
 
 #[poise::command(slash_command, prefix_command)]
 pub(crate) async fn ping(ctx: Context<'_>) -> Result<(), BotError> {
-    ctx.say("ok").await?;
+    ctx.say(format!("ok, interaction ping {} ms", ctx.ping().await.as_millis().to_string())).await?;
     Ok(())
 }
 
