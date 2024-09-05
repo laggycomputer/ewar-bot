@@ -19,8 +19,7 @@ async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
 
     let rows = conn.query(
         "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id \
-        WHERE player_discord.discord_user_id = $1::BIGINT;",
+        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
         &[&(user.id.get() as i64)]).await?;
     if rows.is_empty() {
         ctx.reply("could not find that player").await?;
@@ -34,7 +33,9 @@ async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
 
     ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
-            .field("user", format!("{} (ID {})", remove_markdown(rows[0].get::<&str, String>("player_name")), rows[0].get::<&str, i32>("player_id")), true)
+            .field("user", format!("{} (ID {})",
+                                   remove_markdown(rows[0].get::<&str, String>("player_name")),
+                                   rows[0].get::<&str, i32>("player_id")), true)
             .field("rating stuff", "todo", true)
             .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
 
@@ -46,7 +47,8 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
     let mut conn = ctx.data().postgres.get().await?;
 
     match conn.query_opt(
-        "SELECT player_discord.player_id, player_name FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
+        "SELECT player_discord.player_id, player_name FROM players LEFT JOIN player_discord \
+        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
         &[&(ctx.author().id.get() as i64)]).await? {
         Some(row) => {
             ctx.reply(format!(
@@ -68,8 +70,15 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
                 .deferrable(true)
                 .start().await?;
 
-            let new_id: i32 = trans.query_one("INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;", &[&desired_name]).await?.get("player_id");
-            trans.execute("INSERT INTO player_discord (player_id, discord_user_id) VALUES ($1, $2);", &[&new_id, &(ctx.author().id.get() as i64)]).await?;
+            let new_id: i32 = trans.query_one(
+                "INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;",
+                &[&desired_name]
+            ).await?
+                .get("player_id");
+            trans.execute(
+                "INSERT INTO player_discord (player_id, discord_user_id) VALUES ($1, $2);",
+                &[&new_id, &(ctx.author().id.get() as i64)]
+            ).await?;
             trans.commit().await?;
 
             ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(desired_name), new_id)).await?;
