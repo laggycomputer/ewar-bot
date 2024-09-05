@@ -2,6 +2,7 @@ use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use itertools::Itertools;
 use poise::CreateReply;
+use regex::RegexBuilder;
 use serenity::all::User;
 use tokio_postgres::Row;
 
@@ -99,11 +100,16 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
             )).await?;
         }
         None => {
-            if desired_name.len() > 100 {
+            let valid_pattern = RegexBuilder::new(r"^[a-z\d_.]{1,32}$")
+                .case_insensitive(true)
+                .build()
+                .unwrap();
+
+            if desired_name.len() > 32 {
                 ctx.reply("name too long, sorry").await?;
                 return Ok(());
-            } else if !desired_name.is_ascii() {
-                ctx.reply("ascii only, sorry").await?;
+            } else if !valid_pattern.is_match(&*desired_name) {
+                ctx.reply("only alphanumeric, `_`, or `.`, sorry").await?;
                 return Ok(());
             }
 

@@ -737,6 +737,7 @@ dependencies = [
  "poise",
  "prettytable-rs",
  "rand",
+ "regex",
  "serde",
  "serenity",
  "skillratings",
