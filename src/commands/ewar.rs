@@ -39,7 +39,7 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
             ctx.reply(format!(
                 "cannot bind your discord to a second user (currently bound to user {}, ID {})",
                 remove_markdown(row.get::<&str, String>("player_name")),
-                row.get::<&str, u32>("player_discord")
+                row.get::<&str, i32>("player_id")
             )).await?;
         }
         None => {
