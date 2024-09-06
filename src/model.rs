@@ -1,26 +1,30 @@
 use mongodb::bson::serde_helpers::serialize_bson_datetime_as_rfc3339_string;
-use mongodb::bson::DateTime;
 use serde::{Deserialize, Serialize};
-use serenity::all::UserId;
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::{HashMap, HashSet};
+use mongodb::bson;
 
-type PlayerID = UserId;
+pub(crate) type PlayerID = i32;
 type GameID = u64;
 
-#[derive(Serialize, Deserialize)]
-struct Game {
-    id: u64,
-    // in placement order
-    participants: Vec<PlayerID>,
-    // seconds long
-    length: u32,
-    // time submitted to system
-    #[serde(serialize_with = "serialize_bson_datetime_as_rfc3339_string")]
-    when: DateTime,
+struct LeagueInfo {
+    last_approved: GameID,
 }
 
-enum StandingEventType {
+#[derive(Serialize, Deserialize)]
+pub(crate) struct Game {
+    pub(crate) _id: GameID,
+    // in placement order
+    pub(crate) participants: Vec<PlayerID>,
+    // seconds long
+    pub(crate) length: u32,
+    // time submitted to system
+    #[serde(serialize_with = "serialize_bson_datetime_as_rfc3339_string")]
+    pub(crate) when: bson::DateTime,
+    pub(crate) approver: Option<PlayerID>,
+}
+
+enum StandingEventVariant {
     // remove rating for foul play
     Penalty { amount: f64, reason: String },
     // add deviation for inactivity
@@ -34,8 +38,8 @@ type EventNumber = u32;
 struct StandingEvent {
     number: EventNumber,
     affected: HashSet<PlayerID>,
-    event_type: StandingEventType,
-    when: DateTime,
+    event_type: StandingEventVariant,
+    when: bson::DateTime,
 }
 
 // precompute rating at certain points in the timeline

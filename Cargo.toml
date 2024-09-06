@@ -24,3 +24,4 @@ chrono = "0.4.38"
 prettytable-rs = "0.10.0"
 deadpool-postgres = "0.14.0"
 regex = "1.10.6"
+bson = { version = "2.11.0", features = ["chrono-0_4"] }
