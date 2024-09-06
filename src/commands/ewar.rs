@@ -180,7 +180,6 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         };
     }
 
-
     let emb_desc = format!(
         "you are logging a game with the following result:\n{}\n",
         participants_friendly.iter().enumerate()
@@ -224,7 +223,7 @@ pub(crate) async fn postgame(ctx: Context<'_>,
             simple majority is required to submit game\n\
             {}\n\
             \n\
-            (~~struck through~~ players have already signed)\n\
+            ~~struck through~~ players have already signed\n\
             **after 5 minutes of inactivity, game is rejected for submission**",
             participants_friendly.iter().map(|(user, _, _)| {
                 if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
@@ -243,30 +242,52 @@ pub(crate) async fn postgame(ctx: Context<'_>,
 
     while not_signed_off.len() >= ((placement.len() / 2) as f32).ceil() as usize {
         let not_signed_off_freeze = not_signed_off.clone();
-        let waited = party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
+        match party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
             .filter(move |ixn| {
                 not_signed_off_freeze.contains(&ixn.user)
             })
             .custom_ids(vec![String::from("postgame_party_sign")])
             // TODO: change back
             .timeout(Duration::from_secs(5))
-            .await;
+            .await {
+            None => {
+                let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
 
-        if waited.is_none() {
-            let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
+                party_sign_stage_msg.edit(
+                    ctx.http(),
+                    EditMessage::new()
+                        .components(signoff_components)).await?;
 
-            party_sign_stage_msg.edit(
-                ctx.http(),
-                EditMessage::new()
-                    .components(signoff_components)).await?;
+                party_sign_stage_msg.reply(ctx.http(), "timed out, this game is voided for submission").await?;
 
-            party_sign_stage_msg.reply(ctx.http(), "timed out, this game is voided for submission").await?;
+                return Ok(());
+            }
+            Some(ixn) => {
+                ixn.create_response(ctx.http(), CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                    .content("ok, signed off on this game")
+                    .ephemeral(true))).await?;
 
-            return Ok(());
+                not_signed_off.remove(&ixn.user);
+
+                let (signoff_content, signoff_components) = make_signoff_msg(&not_signed_off, false);
+                party_sign_stage_msg.edit(
+                    ctx.http(),
+                    EditMessage::new()
+                        .content(signoff_content)
+                        .components(signoff_components))
+                    .await?;
+            }
         }
-
-        todo!();
     }
 
-    Ok(())
+    let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
+    party_sign_stage_msg.edit(
+        ctx.http(),
+        EditMessage::new()
+            .components(signoff_components)).await?;
+
+    party_sign_stage_msg.reply(ctx.http(), "ok, game submitted for moderator verification").await?;
+
+    // TODO
+    Err("postgame command not done".into())
 }
