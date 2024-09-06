@@ -153,6 +153,7 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         user6, user7, user8, user9, user10
     ].into_iter().filter_map(identity).collect_vec();
 
+    // part 1: validate proposed game
     if placement.iter().all(|u| u != ctx.author()) {
         ctx.reply(":x: you must be a party to a game to log it").await?;
         return Ok(());
@@ -180,6 +181,7 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         };
     }
 
+    // part 2: submitter must confirm
     let emb_desc = format!(
         "you are logging a game with the following result:\n{}\n",
         participants_friendly.iter().enumerate()
@@ -217,6 +219,7 @@ pub(crate) async fn postgame(ctx: Context<'_>,
                     initial_confirm_button.disabled(true)])])
     )).await?;
 
+    // part 3: parties to game must sign
     let make_signoff_msg = |not_signed_off: &HashSet<User>, disable_button: bool| (
         format!(
             "please sign off on this game with :white_check_mark:\n\
@@ -286,7 +289,12 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         EditMessage::new()
             .components(signoff_components)).await?;
 
-    party_sign_stage_msg.reply(ctx.http(), "ok, game submitted for moderator verification").await?;
+    // part 4: moderator must sign
+    ctx.send(CreateReply::default().content(
+        "ok, game submitted for moderator verification\n\
+        \n\
+        **any moderator, please approve or reject this game**"))
+        .await?;
 
     // TODO
     Err("postgame command not done".into())
