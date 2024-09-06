@@ -1,3 +1,6 @@
+use chrono::Utc;
+use crate::model::PlayerID;
+use crate::model::Game;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use itertools::Itertools;
@@ -7,6 +10,8 @@ use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, Cr
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
+use bson::doc;
+use futures::TryStreamExt;
 use tokio_postgres::Row;
 
 /// shared postlude to every lookup method; just show the user
@@ -165,7 +170,7 @@ pub(crate) async fn postgame(ctx: Context<'_>,
     }
 
     let conn = ctx.data().postgres.get().await?;
-    let mut participants_friendly: Vec<(User, String, i32)> = Vec::with_capacity(placement.len());
+    let mut participants_friendly: Vec<(User, String, PlayerID)> = Vec::with_capacity(placement.len());
     for user in placement.clone().into_iter() {
         match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
         ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
@@ -282,6 +287,26 @@ pub(crate) async fn postgame(ctx: Context<'_>,
             }
         }
     }
+
+    let avail_game_id = ctx.data().mongo.collection::<Game>("games").find(doc! {})
+        .sort(doc! {"_id": -1})
+        .limit(1)
+        .await?
+        .try_next()
+        .await?
+        .map(|g| g._id + 1)
+        .unwrap_or(1);
+
+    dbg!(avail_game_id);
+
+    // TODO
+    let signed_game = Game {
+        _id: avail_game_id,
+        participants: participants_friendly.iter().map(|(_, _, player_id)| *player_id).collect_vec(),
+        length: 0,
+        when: submission_time.into(),
+        approver: None,
+    };
 
     let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
     party_sign_stage_msg.edit(
