@@ -3,12 +3,11 @@ use crate::{BotError, Context};
 use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
-use serenity::all::{CreateActionRow, CreateButton, Mentionable, ReactionType, User};
+use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
 use tokio_postgres::Row;
-
 
 /// shared postlude to every lookup method; just show the user
 async fn lookup_result(ctx: Context<'_>, rows: Vec<Row>) -> Result<(), BotError> {
@@ -165,8 +164,8 @@ pub(crate) async fn postgame(ctx: Context<'_>,
     }
 
     let conn = ctx.data().postgres.get().await?;
-    let mut participants_friendly: Vec<(&User, String, i32)> = Vec::with_capacity(placement.len());
-    for user in placement.iter() {
+    let mut participants_friendly: Vec<(User, String, i32)> = Vec::with_capacity(placement.len());
+    for user in placement.clone().into_iter() {
         match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
         ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
             None => {
@@ -181,16 +180,21 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         };
     }
 
-    let msg = ctx.send(CreateReply::default()
+
+    let emb_desc = format!(
+        "you are logging a game with the following result:\n{}\n",
+        participants_friendly.iter().enumerate()
+            .map(|(index, (discord_user, handle, id))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
+            .join("\n"));
+
+    let initial_confirm_button = CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")));
+    let reply = CreateReply::default()
         .embed(base_embed(ctx)
-            .description(format!(
-                "you are logging a game with the following result:\n{}\n\nplease click below if this is what you meant (10s timeout)",
-                participants_friendly.iter().enumerate()
-                    .map(|(index, (discord_user, handle, id))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
-                    .join("\n"))))
+            .description(emb_desc.clone() + "\nplease click below if this is what you meant (10s timeout)"))
         .components(vec![
             CreateActionRow::Buttons(vec![
-                CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")))])])).await?;
+                initial_confirm_button.clone()])]);
+    let msg = ctx.send(reply.clone()).await?;
 
     let waited = msg.into_message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
@@ -198,10 +202,71 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         .timeout(Duration::from_secs(10)).await;
 
     if waited.is_none() {
-        return Ok(())
+        return Ok(());
     }
 
-    todo!();
+    let mut not_signed_off = placement.clone().into_iter().collect::<HashSet<_>>();
+    not_signed_off.remove(&ctx.author());
+
+    // remove "please react below..." and button
+    waited.unwrap().create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
+        CreateInteractionResponseMessage::new()
+            .embed(base_embed(ctx)
+                .description(emb_desc))
+            .components(vec![
+                CreateActionRow::Buttons(vec![
+                    initial_confirm_button.disabled(true)])])
+    )).await?;
+
+    let make_signoff_msg = |not_signed_off: &HashSet<User>, disable_button: bool| (
+        format!(
+            "please sign off on this game with :white_check_mark:\n\
+            simple majority is required to submit game\n\
+            {}\n\
+            \n\
+            (~~struck through~~ players have already signed)\n\
+            **after 5 minutes of inactivity, game is rejected for submission**",
+            participants_friendly.iter().map(|(user, _, _)| {
+                if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
+            }).join("\n")),
+        vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("postgame_party_sign")
+                    .emoji(ReactionType::Unicode(String::from("✅")))
+                    .disabled(disable_button)])]);
+
+    let (signoff_content, signoff_components) = make_signoff_msg(&not_signed_off, false);
+    let mut party_sign_stage_msg = ctx.send(CreateReply::default()
+        .content(signoff_content)
+        .components(signoff_components)).await?
+        .into_message().await?;
+
+    while not_signed_off.len() >= ((placement.len() / 2) as f32).ceil() as usize {
+        let not_signed_off_freeze = not_signed_off.clone();
+        let waited = party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
+            .filter(move |ixn| {
+                not_signed_off_freeze.contains(&ixn.user)
+            })
+            .custom_ids(vec![String::from("postgame_party_sign")])
+            // TODO: change back
+            .timeout(Duration::from_secs(5))
+            .await;
+
+        if waited.is_none() {
+            let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
+
+            party_sign_stage_msg.edit(
+                ctx.http(),
+                EditMessage::new()
+                    .components(signoff_components)).await?;
+
+            party_sign_stage_msg.reply(ctx.http(), "timed out, this game is voided for submission").await?;
+
+            return Ok(());
+        }
+
+        todo!();
+    }
 
     Ok(())
 }
