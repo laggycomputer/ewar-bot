@@ -1,5 +1,4 @@
-use mongodb::bson;
-use mongodb::bson::serde_helpers::serialize_bson_datetime_as_rfc3339_string;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::{HashMap, HashSet};
@@ -22,8 +21,7 @@ pub(crate) struct Game {
     // seconds long
     pub(crate) length: u32,
     // time submitted to system
-    #[serde(serialize_with = "serialize_bson_datetime_as_rfc3339_string")]
-    pub(crate) when: bson::DateTime,
+    pub(crate) when: chrono::DateTime<Utc>,
     pub(crate) approver: Option<PlayerID>,
 }
 
@@ -42,7 +40,7 @@ struct StandingEvent {
     number: EventNumber,
     affected: HashSet<PlayerID>,
     event_type: StandingEventVariant,
-    when: bson::DateTime,
+    when: chrono::DateTime<Utc>,
 }
 
 // precompute rating at certain points in the timeline

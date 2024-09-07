@@ -336,7 +336,7 @@ pub(crate) async fn postgame(
         _id: avail_game_id,
         participants: participants_friendly.iter().map(|(_, _, player_id)| *player_id).collect_vec(),
         length: time_seconds,
-        when: submitted_time.into(),
+        when: submitted_time,
         approver: None,
     };
 
