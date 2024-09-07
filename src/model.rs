@@ -23,6 +23,7 @@ pub(crate) struct Game {
     // time submitted to system
     pub(crate) when: chrono::DateTime<Utc>,
     pub(crate) approver: Option<PlayerID>,
+    pub(crate) event_number: EventNumber,
 }
 
 #[derive(Serialize, Deserialize)]

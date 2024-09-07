@@ -339,6 +339,7 @@ pub(crate) async fn postgame(
         length: time_seconds,
         when: submitted_time,
         approver: None,
+        event_number: available_event_number,
     };
 
     ctx.data().mongo.collection::<Game>("games").insert_one(signed_game).await?;
@@ -401,14 +402,14 @@ pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), Bot
         Some(row) => {
             let approver_id: PlayerID = row.get("player_id");
 
-            ctx.data().mongo.collection::<Game>("games").find_one_and_update(
+            let Game { event_number, .. } = ctx.data().mongo.collection::<Game>("games").find_one_and_update(
                 doc! { "_id": Bson::Int64(game_id as i64) },
                 doc! { "$set": doc! { "approver": Some(approver_id) } })
                 .await?
                 .expect("game magically disappeared");
 
             ctx.send(CreateReply::default()
-                .content(format!("approved game {game_id} into league record"))).await?;
+                .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
 
             Ok(())
         }
