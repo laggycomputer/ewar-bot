@@ -376,15 +376,31 @@ pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), Bot
         return Ok(());
     }
 
-    ctx.data().mongo.collection::<Game>("games").find_one_and_update(
-        doc! { "_id": game_id.to_string() },
-        doc! { "approver": ctx.author().id.to_string() })
-        .await?
-        .expect("game magically disappeared");
+    // find the approver's system ID
+    let conn = ctx.data().postgres.get().await?;
 
-    ctx.send(CreateReply::default()
-        .content("ok, game approved")
-        .ephemeral(true)).await?;
+    match conn.query_opt(
+        "SELECT player_id FROM player_discord WHERE discord_user_id = $1;",
+        &[&(ctx.author().id.get() as i64)]).await? {
+        None => {
+            ctx.send(CreateReply::default()
+                .content(":x: do you have an account on the system?")
+                .ephemeral(true)).await?;
+            Ok(())
+        }
+        Some(row) => {
+            let approver_id: PlayerID = row.get("player_id");
 
-    Ok(())
+            ctx.data().mongo.collection::<Game>("games").find_one_and_update(
+                doc! { "_id": Bson::Int64(game_id as i64) },
+                doc! { "$set": doc! { "approver": Some(approver_id) } })
+                .await?
+                .expect("game magically disappeared");
+
+            ctx.send(CreateReply::default()
+                .content(format!("approved game {game_id} into league record"))).await?;
+
+            Ok(())
+        }
+    }
 }
