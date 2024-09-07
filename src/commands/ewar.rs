@@ -312,8 +312,8 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
     // increment, but the previous value is what we'll use
     // big idea is to prevent someone else from messing with us, so reserve then use
     let avail_game_id = ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_update(
-        doc! {},
-        doc! { "$inc": doc!{ "last_not_submitted": 1 } })
+        doc!{},
+        doc!{ "$inc": doc!{ "last_not_submitted": 1 } })
         .await?
         .expect("league_info struct missing")
         .last_not_submitted;
