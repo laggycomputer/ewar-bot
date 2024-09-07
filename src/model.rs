@@ -11,6 +11,7 @@ pub(crate) type GameID = u64;
 pub(crate) struct LeagueInfo {
     last_not_approved: GameID,
     pub(crate) last_not_submitted: GameID,
+    pub(crate) last_free_event_number: EventNumber,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -32,7 +33,7 @@ enum StandingEventVariant {
     // add deviation for inactivity
     InactivityDecay { amount: f64 },
     // regular game
-    GameEnd { game: Game },
+    GameEnd { game: GameID },
 }
 
 type EventNumber = u32;
