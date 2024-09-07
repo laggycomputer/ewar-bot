@@ -334,10 +334,10 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
             .components(signoff_components)).await?;
 
     // part 4: moderator must sign
-    ctx.send(CreateReply::default().content(
-        "ok, game submitted for moderator verification\n\
-        \n\
-        **any moderator, please approve or reject this game**"))
+    ctx.send(CreateReply::default().content(format!(
+        "ok, game with ID {avail_game_id} submitted for moderator verification\n\
+        **any moderator, please approve or reject this game with `/approve {avail_game_id}`.**",
+    )))
         .await?;
 
     // TODO
