@@ -1,4 +1,5 @@
-use crate::model::{Game, GameID};
+use crate::model::StandingEventVariant::GameEnd;
+use crate::model::{Game, GameID, StandingEvent};
 use crate::model::{LeagueInfo, PlayerID};
 use crate::util::checks::league_moderators;
 use crate::util::{base_embed, remove_markdown};
@@ -324,23 +325,32 @@ pub(crate) async fn postgame(
 
     // increment, but the previous value is what we'll use
     // big idea is to prevent someone else from messing with us, so reserve then use
-    let LeagueInfo{ last_not_submitted, last_free_event_number, .. } = ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_update(
+    let LeagueInfo { available_game_id, available_event_number, .. } = ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_update(
         doc! {},
-        doc! { "$inc": doc! { "last_not_submitted": 1, "last_free_event_number": 1, } })
+        doc! { "$inc": doc! { "available_game_id": 1, "available_event_number": 1, } })
         .await?
         .expect("league_info struct missing");
 
-    let avail_game_id = last_not_submitted;
+    let participant_system_ids = participants_friendly.iter().map(|(_, _, player_id)| *player_id).collect_vec();
 
     let signed_game = Game {
-        _id: avail_game_id,
-        participants: participants_friendly.iter().map(|(_, _, player_id)| *player_id).collect_vec(),
+        _id: available_game_id,
+        participants: participant_system_ids.clone(),
         length: time_seconds,
         when: submitted_time,
         approver: None,
     };
 
     ctx.data().mongo.collection::<Game>("games").insert_one(signed_game).await?;
+
+    let event = StandingEvent {
+        _id: available_event_number,
+        affected: participant_system_ids,
+        event_type: GameEnd { game_id: available_game_id },
+        when: submitted_time,
+    };
+
+    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
 
     let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
     party_sign_stage_msg.edit(
@@ -350,8 +360,8 @@ pub(crate) async fn postgame(
 
     // part 4: moderator must sign
     ctx.send(CreateReply::default().content(format!(
-        "ok, game with ID {avail_game_id} submitted for moderator verification\n\
-        **any moderator, please approve or reject this game with `/approve {avail_game_id}`.**",
+        "ok, game with ID {available_game_id} submitted for moderator verification\n\
+        **any moderator, please approve or reject this game with `/approve {available_game_id}`.**",
     )))
         .await?;
 
