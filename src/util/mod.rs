@@ -1,3 +1,5 @@
+pub(crate) mod checks;
+
 use crate::Context;
 use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};
 use serenity::all::{CreateEmbed, CreateEmbedAuthor, Permissions};

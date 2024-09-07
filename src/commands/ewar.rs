@@ -1,6 +1,7 @@
-use crate::model::Game;
+use crate::model::{Game, GameID};
 use crate::model::{LeagueInfo, PlayerID};
 use crate::util::{base_embed, remove_markdown};
+use crate::util::checks::league_moderators;
 use crate::{BotError, Context};
 use bson::doc;
 use chrono::Utc;
@@ -342,4 +343,25 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
         .await?;
 
     Ok(())
+}
+
+#[poise::command(slash_command, prefix_command, check = league_moderators)]
+pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), BotError> {
+    let found = ctx.data().mongo.collection::<Game>("games").find_one(doc!{ "_id": game_id.to_string() }).await?;
+    if found.is_none() {
+        ctx.send(CreateReply::default()
+            .content(":x: that game DNE")
+            .ephemeral(true)).await?;
+        return Ok(())
+    }
+
+    if found.unwrap().approver.is_some() {
+        ctx.send(CreateReply::default()
+            .content(":x: that game already approved")
+            .ephemeral(true)).await?;
+        return Ok(())
+    }
+
+    // TODO
+    Err("approve command not done yet".into())
 }

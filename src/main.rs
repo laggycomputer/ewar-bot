@@ -66,6 +66,7 @@ async fn main() {
                 ewar::lookup(),
                 ewar::register(),
                 ewar::postgame(),
+                ewar::approve(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 mention_as_prefix: true,
