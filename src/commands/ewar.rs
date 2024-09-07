@@ -150,9 +150,31 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
 
 /// Log a completed game with placement
 #[poise::command(prefix_command, slash_command)]
-pub(crate) async fn postgame(ctx: Context<'_>,
+pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
                              user1: User, user2: User, user3: Option<User>, user4: Option<User>, user5: Option<User>,
                              user6: Option<User>, user7: Option<User>, user8: Option<User>, user9: Option<User>, user10: Option<User>) -> Result<(), BotError> {
+    // accept hh:mm:ss or mm:ss or ss
+    let game_time = game_time.split(":").collect_vec();
+    if game_time.len() > 3 || game_time.iter().any(|sec| sec.is_empty()) {
+        ctx.send(CreateReply::default()
+            .content(":x: bad format; hh:mm:ss or mm:ss or ss")
+            .ephemeral(true)).await?;
+        return Ok(());
+    }
+    let parts = game_time.into_iter().map(|sec| sec.parse::<u32>().ok()).rev().collect_vec();
+    if parts.iter().any(|sec| sec.is_none()) {
+        ctx.send(CreateReply::default()
+            .content(":x: some part of your time was not a number")
+            .ephemeral(true)).await?;
+        return Ok(());
+    }
+    let unwrapped_parts = parts.into_iter().map(Option::unwrap).collect_vec();
+    let time_seconds = unwrapped_parts.get(0).unwrap_or(&0)
+            + 60 * unwrapped_parts.get(1).unwrap_or(&0)
+            + 60 * 60 * unwrapped_parts.get(2).unwrap_or(&0);
+
+    let submitted_time = Utc::now();
+
     let placement = vec![
         Some(user1), Some(user2), user3, user4, user5,
         user6, user7, user8, user9, user10
@@ -297,14 +319,11 @@ pub(crate) async fn postgame(ctx: Context<'_>,
         .map(|g| g._id + 1)
         .unwrap_or(1);
 
-    dbg!(avail_game_id);
-
-    // TODO
     let signed_game = Game {
         _id: avail_game_id,
         participants: participants_friendly.iter().map(|(_, _, player_id)| *player_id).collect_vec(),
-        length: 0,
-        when: submission_time.into(),
+        length: time_seconds,
+        when: submitted_time.into(),
         approver: None,
     };
 
