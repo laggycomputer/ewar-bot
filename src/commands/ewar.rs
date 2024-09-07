@@ -3,7 +3,7 @@ use crate::model::{LeagueInfo, PlayerID};
 use crate::util::checks::league_moderators;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
-use bson::doc;
+use bson::{doc, Bson};
 use chrono::Utc;
 use itertools::Itertools;
 use poise::CreateReply;
@@ -360,7 +360,8 @@ pub(crate) async fn postgame(
 
 #[poise::command(slash_command, prefix_command, check = league_moderators)]
 pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), BotError> {
-    let found = ctx.data().mongo.collection::<Game>("games").find_one(doc! { "_id": game_id.to_string() }).await?;
+    let found = ctx.data().mongo.collection::<Game>("games").find_one(
+        doc! { "_id":  Bson::Int64(game_id as i64) }).await?;
     if found.is_none() {
         ctx.send(CreateReply::default()
             .content(":x: that game DNE")
@@ -375,6 +376,15 @@ pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), Bot
         return Ok(());
     }
 
-    // TODO
-    Err("approve command not done yet".into())
+    ctx.data().mongo.collection::<Game>("games").find_one_and_update(
+        doc! { "_id": game_id.to_string() },
+        doc! { "approver": ctx.author().id.to_string() })
+        .await?
+        .expect("game magically disappeared");
+
+    ctx.send(CreateReply::default()
+        .content("ok, game approved")
+        .ephemeral(true)).await?;
+
+    Ok(())
 }
