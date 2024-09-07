@@ -1,8 +1,9 @@
-use chrono::Utc;
-use crate::model::PlayerID;
 use crate::model::Game;
+use crate::model::{LeagueInfo, PlayerID};
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
+use bson::doc;
+use chrono::Utc;
 use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
@@ -10,8 +11,6 @@ use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, Cr
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
-use bson::doc;
-use futures::TryStreamExt;
 use tokio_postgres::Row;
 
 /// shared postlude to every lookup method; just show the user
@@ -170,8 +169,8 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
     }
     let unwrapped_parts = parts.into_iter().map(Option::unwrap).collect_vec();
     let time_seconds = unwrapped_parts.get(0).unwrap_or(&0)
-            + 60 * unwrapped_parts.get(1).unwrap_or(&0)
-            + 60 * 60 * unwrapped_parts.get(2).unwrap_or(&0);
+        + 60 * unwrapped_parts.get(1).unwrap_or(&0)
+        + 60 * 60 * unwrapped_parts.get(2).unwrap_or(&0);
 
     let submitted_time = Utc::now();
 
@@ -310,14 +309,14 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
         }
     }
 
-    let avail_game_id = ctx.data().mongo.collection::<Game>("games").find(doc! {})
-        .sort(doc! {"_id": -1})
-        .limit(1)
+    // increment, but the previous value is what we'll use
+    // big idea is to prevent someone else from messing with us, so reserve then use
+    let avail_game_id = ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_update(
+        doc! {},
+        doc! { "$inc": doc!{ "last_not_submitted": 1 } })
         .await?
-        .try_next()
-        .await?
-        .map(|g| g._id + 1)
-        .unwrap_or(1);
+        .expect("league_info struct missing")
+        .last_not_submitted;
 
     let signed_game = Game {
         _id: avail_game_id,
@@ -326,6 +325,8 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
         when: submitted_time.into(),
         approver: None,
     };
+
+    ctx.data().mongo.collection::<Game>("games").insert_one(signed_game).await?;
 
     let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
     party_sign_stage_msg.edit(
@@ -340,6 +341,5 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
     )))
         .await?;
 
-    // TODO
-    Err("postgame command not done".into())
+    Ok(())
 }

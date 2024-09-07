@@ -1,14 +1,16 @@
+use mongodb::bson;
 use mongodb::bson::serde_helpers::serialize_bson_datetime_as_rfc3339_string;
 use serde::{Deserialize, Serialize};
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::{HashMap, HashSet};
-use mongodb::bson;
 
 pub(crate) type PlayerID = i32;
-type GameID = u64;
+pub(crate) type GameID = u64;
 
-struct LeagueInfo {
-    last_approved: GameID,
+#[derive(Serialize, Deserialize)]
+pub(crate) struct LeagueInfo {
+    last_not_approved: GameID,
+    pub(crate) last_not_submitted: GameID,
 }
 
 #[derive(Serialize, Deserialize)]
