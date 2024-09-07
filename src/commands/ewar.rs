@@ -369,8 +369,11 @@ pub(crate) async fn postgame(
     Ok(())
 }
 
+/// League moderators: approve a game into the league record
 #[poise::command(slash_command, prefix_command, check = league_moderators)]
-pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), BotError> {
+pub(crate) async fn approve(
+    ctx: Context<'_>,
+    #[description = "ID of game to approve"] game_id: GameID) -> Result<(), BotError> {
     let found = ctx.data().mongo.collection::<Game>("games").find_one(
         doc! { "_id":  Bson::Int64(game_id as i64) }).await?;
     if found.is_none() {
