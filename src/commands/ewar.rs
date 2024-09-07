@@ -1,7 +1,7 @@
 use crate::model::{Game, GameID};
 use crate::model::{LeagueInfo, PlayerID};
-use crate::util::{base_embed, remove_markdown};
 use crate::util::checks::league_moderators;
+use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use bson::doc;
 use chrono::Utc;
@@ -42,7 +42,7 @@ pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
 
 /// defaults to you; look up a player by discord user
 #[poise::command(slash_command, prefix_command)]
-async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
+async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
     let user = user.as_ref().unwrap_or(ctx.author());
 
     let conn = ctx.data().postgres.get().await?;
@@ -61,7 +61,7 @@ async fn user(ctx: Context<'_>, user: Option<User>) -> Result<(), BotError> {
 
 /// look up a player by handle
 #[poise::command(slash_command, prefix_command)]
-async fn name(ctx: Context<'_>, handle: String) -> Result<(), BotError> {
+async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
     let conn = ctx.data().postgres.get().await?;
 
     let rows = conn.query(
@@ -78,7 +78,7 @@ async fn name(ctx: Context<'_>, handle: String) -> Result<(), BotError> {
 
 /// look up a player by database ID
 #[poise::command(slash_command, prefix_command)]
-async fn id(ctx: Context<'_>, id: i32) -> Result<(), BotError> {
+async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: i32) -> Result<(), BotError> {
     let conn = ctx.data().postgres.get().await?;
 
     let rows = conn.query(
@@ -94,7 +94,7 @@ async fn id(ctx: Context<'_>, id: i32) -> Result<(), BotError> {
 }
 
 #[poise::command(slash_command, prefix_command)]
-pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(), BotError> {
+pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you want upon registration"] desired_name: String) -> Result<(), BotError> {
     let mut conn = ctx.data().postgres.get().await?;
 
     match conn.query_opt(
@@ -150,9 +150,22 @@ pub(crate) async fn register(ctx: Context<'_>, desired_name: String) -> Result<(
 
 /// Log a completed game with placement
 #[poise::command(prefix_command, slash_command)]
-pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
-                             user1: User, user2: User, user3: Option<User>, user4: Option<User>, user5: Option<User>,
-                             user6: Option<User>, user7: Option<User>, user8: Option<User>, user9: Option<User>, user10: Option<User>) -> Result<(), BotError> {
+pub(crate) async fn postgame(
+    ctx: Context<'_>,
+    #[description = "Time given for the game before overtime"] game_time: String,
+    // AAAAAAAAA
+    #[description = "The winner of the game"] user1: User,
+    #[description = "#2 in the game"] user2: User,
+    #[description = "#3, if applicable"] user3: Option<User>,
+    #[description = "#4, if applicable"] user4: Option<User>,
+    #[description = "#5, if applicable"] user5: Option<User>,
+    #[description = "#6, if applicable"] user6: Option<User>,
+    #[description = "#7, if applicable"] user7: Option<User>,
+    #[description = "#8, if applicable"] user8: Option<User>,
+    #[description = "#9, if applicable"] user9: Option<User>,
+    #[description = "#10, if applicable"] user10: Option<User>,
+    #[description = "#11, if applicable"] user11: Option<User>,
+) -> Result<(), BotError> {
     // accept hh:mm:ss or mm:ss or ss
     let game_time = game_time.split(":").collect_vec();
     if game_time.len() > 3 || game_time.iter().any(|sec| sec.is_empty()) {
@@ -176,8 +189,8 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
     let submitted_time = Utc::now();
 
     let placement = vec![
-        Some(user1), Some(user2), user3, user4, user5,
-        user6, user7, user8, user9, user10
+        Some(user1), Some(user2), user3, user4, user5, user6,
+        user7, user8, user9, user10, user11,
     ].into_iter().filter_map(identity).collect_vec();
 
     // part 1: validate proposed game
@@ -313,8 +326,8 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
     // increment, but the previous value is what we'll use
     // big idea is to prevent someone else from messing with us, so reserve then use
     let avail_game_id = ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_update(
-        doc!{},
-        doc!{ "$inc": doc!{ "last_not_submitted": 1 } })
+        doc! {},
+        doc! { "$inc": doc! { "last_not_submitted": 1 } })
         .await?
         .expect("league_info struct missing")
         .last_not_submitted;
@@ -347,19 +360,19 @@ pub(crate) async fn postgame(ctx: Context<'_>, game_time: String,
 
 #[poise::command(slash_command, prefix_command, check = league_moderators)]
 pub(crate) async fn approve(ctx: Context<'_>, game_id: GameID) -> Result<(), BotError> {
-    let found = ctx.data().mongo.collection::<Game>("games").find_one(doc!{ "_id": game_id.to_string() }).await?;
+    let found = ctx.data().mongo.collection::<Game>("games").find_one(doc! { "_id": game_id.to_string() }).await?;
     if found.is_none() {
         ctx.send(CreateReply::default()
             .content(":x: that game DNE")
             .ephemeral(true)).await?;
-        return Ok(())
+        return Ok(());
     }
 
     if found.unwrap().approver.is_some() {
         ctx.send(CreateReply::default()
             .content(":x: that game already approved")
             .ephemeral(true)).await?;
-        return Ok(())
+        return Ok(());
     }
 
     // TODO
