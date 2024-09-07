@@ -38,7 +38,7 @@ type EventNumber = u32;
 
 struct StandingEvent {
     number: EventNumber,
-    affected: HashSet<PlayerID>,
+    affected: Vec<PlayerID>,
     event_type: StandingEventVariant,
     when: chrono::DateTime<Utc>,
 }
