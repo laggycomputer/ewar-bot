@@ -290,8 +290,7 @@ pub(crate) async fn postgame(
                 not_signed_off_freeze.contains(&ixn.user)
             })
             .custom_ids(vec![String::from("postgame_party_sign")])
-            // TODO: change back
-            .timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(5 * 60))
             .await {
             None => {
                 let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
