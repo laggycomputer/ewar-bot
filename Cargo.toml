@@ -14,7 +14,7 @@ pluralizer = "0.4.0"
 serde = "1.0.188"
 futures = "0.3.28"
 mongodb = "3.1.0"
-tokio-postgres = "0.7.11"
+tokio-postgres = { version = "0.7.11", features = ["with-chrono-0_4"] }
 skillratings = "0.27.0"
 rand = "0.8.5"
 gix = "0.66.0"

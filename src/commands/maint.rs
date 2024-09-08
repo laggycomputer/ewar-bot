@@ -41,6 +41,8 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
                                 &Type::INT8 => row.get::<usize, i64>(ind).to_string(),
                                 &Type::INT4 => row.get::<usize, i32>(ind).to_string(),
                                 &Type::INT2 => row.get::<usize, i16>(ind).to_string(),
+                                &Type::FLOAT8 => row.get::<usize, f64>(ind).to_string(),
+                                &Type::TIMESTAMP => row.get::<usize, chrono::NaiveDateTime>(ind).to_string(),
                                 &Type::BOOL => row.get::<usize, bool>(ind).to_string(),
                                 _ => String::from(format!("type {col_type} not yet implemented for printing"))
                             })
