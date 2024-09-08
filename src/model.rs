@@ -22,7 +22,8 @@ pub(crate) struct Game {
     pub(crate) length: u32,
     // time submitted to system
     pub(crate) when: chrono::DateTime<Utc>,
-    pub(crate) approver: Option<PlayerID>,
+    pub(crate) approved: Option<bool>,
+    pub(crate) reviewer: Option<PlayerID>,
     pub(crate) event_number: EventNumber,
 }
 

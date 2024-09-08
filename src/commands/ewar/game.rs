@@ -240,7 +240,8 @@ pub(crate) async fn postgame(
         participants: participant_system_ids.clone(),
         length: time_seconds,
         when: submitted_time,
-        approver: None,
+        approved: None,
+        reviewer: None,
         event_number: available_event_number,
     };
 
@@ -285,14 +286,14 @@ pub(crate) async fn approve(
         return Ok(());
     }
 
-    if found.unwrap().approver.is_some() {
+    if found.unwrap().reviewer.is_some() {
         ctx.send(CreateReply::default()
             .content(":x: that game already approved")
             .ephemeral(true)).await?;
         return Ok(());
     }
 
-    // find the approver's system ID
+    // find the reviewer's system ID
     let conn = ctx.data().postgres.get().await?;
 
     let Game { _id: game_id, event_number, when, participants, .. } = match conn.query_opt(
@@ -305,11 +306,11 @@ pub(crate) async fn approve(
             return Ok(());
         }
         Some(row) => {
-            let approver_id: PlayerID = row.get("player_id");
+            let reviewer_id: PlayerID = row.get("player_id");
 
             ctx.data().mongo.collection::<Game>("games").find_one_and_update(
                 doc! { "_id": Bson::Int64(game_id as i64) },
-                doc! { "$set": doc! { "approver": Some(approver_id) } })
+                doc! { "$set": doc! { "approved": Some(true), "reviewer": Some(reviewer_id) } })
                 .await?
                 .expect("game magically disappeared")
         }
