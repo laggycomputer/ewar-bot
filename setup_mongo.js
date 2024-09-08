@@ -1,5 +1,6 @@
 db["league_info"].deleteMany({});
 db["games"].deleteMany({});
+db["events"].deleteMany({});
 
 db["league_info"].insertOne({
     "last_not_approved_game": 0,
