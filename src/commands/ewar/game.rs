@@ -316,7 +316,7 @@ pub(crate) async fn approve(
     };
 
     // set everyone's last played
-    conn.execute("UPDATE players SET last_played = $1 WHERE last_played < $1 AND player_id IN $2", &[&when.naive_utc(), &participants]).await?;
+    conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &participants]).await?;
 
     ctx.send(CreateReply::default()
         .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
