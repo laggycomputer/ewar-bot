@@ -156,10 +156,25 @@ enum BadPlacementType {
     UserNotFound { offending: User },
 }
 
+impl BadPlacementType {
+    fn create_error_message(&self, ctx: Context<'_>) -> CreateReply {
+        match self {
+            DuplicateUser => {
+                CreateReply::default().content(":x: same user given twice; each player has exactly one ranking!")
+            }
+            UserNotFound { offending: user } => {
+                CreateReply::default()
+                    .embed(base_embed(ctx)
+                        .description(format!("{} has no account on this bot", user.mention())))
+            }
+        }
+    }
+}
+
 /// placements as discord user to (system username, system ID) pair
 async fn placement_discord_to_system(placement: &Vec<User>, conn: Object) -> Result<Result<Vec<(String, PlayerID)>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
-        return Ok(Err(DuplicateUser))
+        return Ok(Err(DuplicateUser));
     }
 
     let mut placement_system_users: Vec<(String, PlayerID)> = Vec::with_capacity(placement.len());
@@ -232,16 +247,7 @@ pub(crate) async fn postgame(
     let conn = ctx.data().postgres.get().await?;
     let placement_system_users = match placement_discord_to_system(&placement_discord, conn).await? {
         Err(reason) => {
-            match reason {
-                DuplicateUser => {
-                    ctx.reply(":x: same user given twice; each player has exactly one ranking!").await?;
-                }
-                UserNotFound { offending: user } => {
-                    ctx.send(CreateReply::default()
-                        .embed(base_embed(ctx)
-                            .description(format!("{} has no account on this bot", user.mention())))).await?;
-                }
-            }
+            ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());
         }
         Ok(ret) => ret
