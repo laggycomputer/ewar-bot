@@ -8,7 +8,7 @@ pub(crate) type GameID = u64;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeagueInfo {
-    last_not_approved_game: GameID,
+    first_unreviewed_game: GameID,
     pub(crate) available_game_id: GameID,
     pub(crate) available_event_number: EventNumber,
 }
