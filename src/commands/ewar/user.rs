@@ -86,7 +86,9 @@ async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: i32)
 }
 
 #[poise::command(slash_command, prefix_command)]
-pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you want upon registration"] desired_name: String) -> Result<(), BotError> {
+pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your Discord username - name you want upon registration"] desired_name: Option<String>) -> Result<(), BotError> {
+    let proposed_name = desired_name.unwrap_or(ctx.author().name.clone());
+
     let mut conn = ctx.data().postgres.get().await?;
 
     match conn.query_opt(
@@ -101,8 +103,8 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you wan
             )).await?;
         }
         None => {
-            if conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&desired_name.as_str()]).await?.is_some() {
-                ctx.reply("user by that name already exists").await?;
+            if conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&proposed_name.as_str()]).await?.is_some() {
+                ctx.reply(format!("user by name {proposed_name} already exists")).await?;
                 return Ok(());
             }
 
@@ -110,10 +112,10 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you wan
                 .case_insensitive(true)
                 .build().unwrap();
 
-            if desired_name.len() > 32 {
+            if proposed_name.len() > 32 {
                 ctx.reply("name too long, sorry").await?;
                 return Ok(());
-            } else if !valid_pattern.is_match(&*desired_name) {
+            } else if !valid_pattern.is_match(&*proposed_name) {
                 ctx.reply("only alphanumeric, `_`, or `.`, sorry").await?;
                 return Ok(());
             }
@@ -124,7 +126,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you wan
 
             let new_id: i32 = trans.query_one(
                 "INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;",
-                &[&desired_name],
+                &[&proposed_name],
             ).await?
                 .get("player_id");
             trans.execute(
@@ -133,7 +135,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you wan
             ).await?;
             trans.commit().await?;
 
-            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(desired_name), new_id)).await?;
+            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(proposed_name), new_id)).await?;
         }
     };
 
