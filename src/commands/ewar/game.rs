@@ -271,11 +271,12 @@ pub(crate) async fn postgame(
     Ok(())
 }
 
-/// League moderators: approve a game into the league record
+/// League moderators: review game for league record; approve or reject
 #[poise::command(slash_command, prefix_command, check = league_moderators)]
-pub(crate) async fn approve(
+pub(crate) async fn review(
     ctx: Context<'_>,
-    #[description = "ID of game to approve"] game_id: GameID) -> Result<(), BotError> {
+    #[description = "ID of game to approve"] game_id: GameID,
+    #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
     let found = ctx.data().mongo.collection::<Game>("games").find_one(
         doc! { "_id":  Bson::Int64(game_id as i64) }).await?;
     if found.is_none() {
@@ -287,7 +288,7 @@ pub(crate) async fn approve(
 
     if found.unwrap().approval_status.is_some() {
         ctx.send(CreateReply::default()
-            .content(":x: that game already approved")
+            .content(":x: that game already reviewed")
             .ephemeral(true)).await?;
         return Ok(());
     }
@@ -310,7 +311,7 @@ pub(crate) async fn approve(
             ctx.data().mongo.collection::<Game>("games").find_one_and_update(
                 doc! { "_id": Bson::Int64(game_id as i64) },
                 doc! { "$set": doc! { "approval_status": doc! {
-                    "approved": true,
+                    "approved": approved,
                     "reviewer": reviewer_id,
                 } } })
                 .await?
@@ -318,11 +319,16 @@ pub(crate) async fn approve(
         }
     };
 
-    // set everyone's last played
-    conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &participants]).await?;
+    if approved {
+        // set everyone's last played
+        conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &participants]).await?;
 
-    ctx.send(CreateReply::default()
-        .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
+        ctx.send(CreateReply::default()
+            .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
+    } else {
+        ctx.send(CreateReply::default()
+            .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
+    }
     Ok(())
 }
 

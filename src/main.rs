@@ -66,7 +66,7 @@ async fn main() {
                 ewar::user::lookup(),
                 ewar::user::register(),
                 ewar::game::postgame(),
-                ewar::game::approve(),
+                ewar::game::review(),
                 ewar::game::whatif_game(),
             ],
             prefix_options: PrefixFrameworkOptions {
