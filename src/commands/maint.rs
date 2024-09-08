@@ -4,6 +4,10 @@ use prettytable::{format, Row, Table};
 use tokio::time::Instant;
 use tokio_postgres::types::Type;
 
+fn get_null_string() -> String{
+    String::from("NULL")
+}
+
 #[poise::command(slash_command, prefix_command, owners_only)]
 pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError> {
     let conn = ctx.data().postgres.get().await?;
@@ -36,15 +40,16 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
                     (0..row.len())
                         .map(|ind| {
                             let col_type = row.columns()[ind].type_();
+
                             prettytable::Cell::new(&(match col_type {
-                                &Type::VARCHAR => row.get::<usize, String>(ind),
-                                &Type::INT8 => row.get::<usize, i64>(ind).to_string(),
-                                &Type::INT4 => row.get::<usize, i32>(ind).to_string(),
-                                &Type::INT2 => row.get::<usize, i16>(ind).to_string(),
-                                &Type::FLOAT8 => row.get::<usize, f64>(ind).to_string(),
-                                &Type::TIMESTAMP => row.get::<usize, chrono::NaiveDateTime>(ind).to_string(),
-                                &Type::BOOL => row.get::<usize, bool>(ind).to_string(),
-                                _ => String::from(format!("type {col_type} not yet implemented for printing"))
+                                &Type::VARCHAR => row.get::<usize, Option<String>>(ind).unwrap_or_else(get_null_string),
+                                &Type::INT8 => row.get::<usize, Option<i64>>(ind).as_ref().map(ToString::to_string).unwrap_or_else(get_null_string),
+                                &Type::INT4 => row.get::<usize, Option<i32>>(ind).as_ref().map(ToString::to_string).unwrap_or_else(get_null_string),
+                                &Type::INT2 => row.get::<usize, Option<i16>>(ind).as_ref().map(ToString::to_string).unwrap_or_else(get_null_string),
+                                &Type::FLOAT8 => row.get::<usize, Option<f64>>(ind).as_ref().map(ToString::to_string).unwrap_or_else(get_null_string),
+                                &Type::TIMESTAMP => row.get::<usize, Option<chrono::NaiveDateTime>>(ind).as_ref().map(ToString::to_string).unwrap_or_else(get_null_string),
+                                &Type::BOOL => row.get::<usize, Option<bool>>(ind).as_ref().map(ToString::to_string).unwrap_or_else(get_null_string),
+                                _ => format!("type {col_type} not yet implemented for printing")
                             })
                                 .into_boxed_str())
                         })
