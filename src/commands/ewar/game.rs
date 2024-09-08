@@ -1,157 +1,21 @@
-use crate::commands::ewar::BadPlacementType::{DuplicateUser, UserNotFound};
-use crate::model::StandingEventVariant::GameEnd;
-use crate::model::{Game, GameID, StandingEvent};
-use crate::model::{LeagueInfo, PlayerID};
 use crate::util::checks::league_moderators;
-use crate::util::{base_embed, remove_markdown};
+use bson::Bson;
+use std::time::Duration;
+use std::convert::identity;
+use crate::ewar::game::BadPlacementType::*;
+use crate::model::StandingEventVariant::GameEnd;
+use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
+use crate::util::base_embed;
+use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
-use bson::{doc, Bson};
+use bson::doc;
 use chrono::Utc;
-use deadpool_postgres::Object;
 use itertools::Itertools;
 use poise::CreateReply;
-use regex::RegexBuilder;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
-use skillratings::trueskill::{trueskill_multi_team, TrueSkillRating, TrueSkillConfig};
+use skillratings::trueskill::{trueskill_multi_team, TrueSkillConfig, TrueSkillRating};
 use skillratings::MultiTeamOutcome;
 use std::collections::HashSet;
-use std::convert::identity;
-use std::time::Duration;
-use tokio_postgres::Row;
-
-/// shared postlude to every lookup method; just show the user
-async fn lookup_result(ctx: Context<'_>, rows: Vec<Row>) -> Result<(), BotError> {
-    let mut assoc_accounts = rows.iter().map(|row| format!("<@{}>", row.get::<&str, i64>("discord_user_id"))).join(", ");
-    if assoc_accounts.is_empty() {
-        assoc_accounts = String::from("<none>")
-    }
-
-    ctx.send(CreateReply::default()
-        .embed(base_embed(ctx)
-            .field("user", format!("{} (ID {})",
-                                   remove_markdown(rows[0].get::<&str, String>("player_name")),
-                                   rows[0].get::<&str, i32>("player_id")), true)
-            .field("rating stuff", "todo", true)
-            .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
-
-    Ok(())
-}
-
-/// Look up a user in the database
-#[poise::command(slash_command, prefix_command, subcommands("user", "name", "id"))]
-pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
-    ctx.reply("base command is noop, try a subcommand").await?;
-
-    Ok(())
-}
-
-/// defaults to you; look up a player by discord user
-#[poise::command(slash_command, prefix_command)]
-async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
-    let user = user.as_ref().unwrap_or(ctx.author());
-
-    let conn = ctx.data().postgres.get().await?;
-
-    let rows = conn.query(
-        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
-        &[&(user.id.get() as i64)]).await?;
-    if rows.is_empty() {
-        ctx.reply("could not find player with that discord user").await?;
-        return Ok(());
-    }
-
-    lookup_result(ctx, rows).await
-}
-
-/// look up a player by handle
-#[poise::command(slash_command, prefix_command)]
-async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
-    let conn = ctx.data().postgres.get().await?;
-
-    let rows = conn.query(
-        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_name = $1;",
-        &[&handle]).await?;
-    if rows.is_empty() {
-        ctx.reply("could not find player by that handle").await?;
-        return Ok(());
-    }
-
-    lookup_result(ctx, rows).await
-}
-
-/// look up a player by database ID
-#[poise::command(slash_command, prefix_command)]
-async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: i32) -> Result<(), BotError> {
-    let conn = ctx.data().postgres.get().await?;
-
-    let rows = conn.query(
-        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE players.player_id = $1;",
-        &[&id]).await?;
-    if rows.is_empty() {
-        ctx.reply("could not find player by that ID").await?;
-        return Ok(());
-    }
-
-    lookup_result(ctx, rows).await
-}
-
-#[poise::command(slash_command, prefix_command)]
-pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you want upon registration"] desired_name: String) -> Result<(), BotError> {
-    let mut conn = ctx.data().postgres.get().await?;
-
-    match conn.query_opt(
-        "SELECT player_discord.player_id, player_name FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
-        &[&(ctx.author().id.get() as i64)]).await? {
-        Some(row) => {
-            ctx.reply(format!(
-                "cannot bind your discord to a second user (currently bound to user {}, ID {})",
-                remove_markdown(row.get::<&str, String>("player_name")),
-                row.get::<&str, i32>("player_id")
-            )).await?;
-        }
-        None => {
-            if conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&desired_name.as_str()]).await?.is_some() {
-                ctx.reply("user by that name already exists").await?;
-                return Ok(());
-            }
-
-            let valid_pattern = RegexBuilder::new(r"^[a-z\d_.]{1,32}$")
-                .case_insensitive(true)
-                .build().unwrap();
-
-            if desired_name.len() > 32 {
-                ctx.reply("name too long, sorry").await?;
-                return Ok(());
-            } else if !valid_pattern.is_match(&*desired_name) {
-                ctx.reply("only alphanumeric, `_`, or `.`, sorry").await?;
-                return Ok(());
-            }
-
-            let trans = conn.build_transaction()
-                .deferrable(true)
-                .start().await?;
-
-            let new_id: i32 = trans.query_one(
-                "INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;",
-                &[&desired_name],
-            ).await?
-                .get("player_id");
-            trans.execute(
-                "INSERT INTO player_discord (player_id, discord_user_id) VALUES ($1, $2);",
-                &[&new_id, &(ctx.author().id.get() as i64)],
-            ).await?;
-            trans.commit().await?;
-
-            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(desired_name), new_id)).await?;
-        }
-    };
-
-    Ok(())
-}
 
 enum BadPlacementType {
     DuplicateUser,
@@ -174,7 +38,7 @@ impl BadPlacementType {
 }
 
 /// placements as discord user to (system username, system ID) pair
-async fn placement_discord_to_system(placement: &Vec<User>, conn: Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
+async fn placement_discord_to_system(placement: &Vec<User>, conn: deadpool_postgres::Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
         return Ok(Err(DuplicateUser));
     }
@@ -279,7 +143,7 @@ pub(crate) async fn postgame(
     let waited = msg.into_message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
         .custom_ids(vec![String::from("postgame_confirm_initial")])
-        .timeout(Duration::from_secs(10)).await;
+        .timeout(std::time::Duration::from_secs(10)).await;
 
     if waited.is_none() {
         return Ok(());
@@ -455,4 +319,78 @@ pub(crate) async fn approve(
             Ok(())
         }
     }
+}
+
+/// See the results of a potential match
+#[poise::command(prefix_command, slash_command)]
+pub(crate) async fn whatif_game(
+    ctx: Context<'_>,
+    // AAAAAAAAA
+    #[description = "The winner of the hypothetical game"] user1: User,
+    #[description = "#2 in the hypothetical game"] user2: User,
+    #[description = "#3, if applicable"] user3: Option<User>,
+    #[description = "#4, if applicable"] user4: Option<User>,
+    #[description = "#5, if applicable"] user5: Option<User>,
+    #[description = "#6, if applicable"] user6: Option<User>,
+    #[description = "#7, if applicable"] user7: Option<User>,
+    #[description = "#8, if applicable"] user8: Option<User>,
+    #[description = "#9, if applicable"] user9: Option<User>,
+    #[description = "#10, if applicable"] user10: Option<User>,
+    #[description = "#11, if applicable"] user11: Option<User>,
+) -> Result<(), BotError> {
+    let placement_discord = vec![
+        Some(user1), Some(user2), user3, user4, user5, user6,
+        user7, user8, user9, user10, user11,
+    ].into_iter().filter_map(identity).collect_vec();
+
+    let conn = ctx.data().postgres.get().await?;
+    let placement_system_users = match placement_discord_to_system(&placement_discord, conn).await? {
+        Err(reason) => {
+            ctx.send(reason.create_error_message(ctx)).await?;
+            return Ok(());
+        }
+        Ok(ret) => ret
+    };
+
+    let ratings = placement_system_users.iter()
+        .map(|(_, _, rating)| vec![*rating])
+        .collect_vec();
+
+    // each team has exactly 1 player
+    let new_ratings = trueskill_multi_team(
+        ratings.iter()
+            .enumerate()
+            .map(|(index, rating)| (&rating[..], MultiTeamOutcome::new(index + 1)))
+            .collect_vec()
+            .as_slice(),
+        &TrueSkillConfig {
+            draw_probability: 0f64,
+            beta: 2f64,
+            // aka tau
+            default_dynamics: 0.04,
+        }).into_iter()
+        .map(|team| team[0])
+        .collect_vec();
+
+    let mut leaderboard = String::new();
+    for index in 0..placement_discord.len() {
+        let old_rating = placement_system_users[index].2;
+        let new_rating = new_ratings[index];
+        let leaderboard_delta = new_rating.leaderboard_rating() - old_rating.leaderboard_rating();
+        leaderboard += &*(format!(
+            "{}. {:.2} -> {:.2} ({}{:.2}): {} ({}, ID {})\n",
+            index + 1,
+            old_rating.format_rating(),
+            new_rating.format_rating(),
+            if leaderboard_delta.is_sign_positive() { '+' } else { '-' },
+            leaderboard_delta.abs(),
+            placement_discord[index].mention(),
+            placement_system_users[index].0,
+            placement_system_users[index].1,
+        ))
+    }
+
+    ctx.reply(leaderboard).await?;
+
+    Ok(())
 }
