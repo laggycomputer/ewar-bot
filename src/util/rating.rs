@@ -20,6 +20,6 @@ impl RatingExtra for TrueSkillRating {
     }
 
     fn format_rating(&self) -> String {
-        format!("{}{}", self.leaderboard_rating(), if self.is_provisional() { "**?**" } else { "" })
+        format!("{:.2}{}", self.leaderboard_rating(), if self.is_provisional() { "**?**" } else { "" })
     }
 }

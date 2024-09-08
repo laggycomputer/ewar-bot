@@ -380,12 +380,11 @@ pub(crate) async fn whatif_game(
         let new_rating = new_ratings[index];
         let leaderboard_delta = new_rating.leaderboard_rating() - old_rating.leaderboard_rating();
         leaderboard += &*(format!(
-            "{}. {:.2} -> {:.2} ({}{:.2}): {} ({}, ID {})\n",
+            "{}. {} -> {} ({:+.2}): {} ({}, ID {})\n",
             index + 1,
             old_rating.format_rating(),
             new_rating.format_rating(),
-            if leaderboard_delta.is_sign_positive() { '+' } else { '-' },
-            leaderboard_delta.abs(),
+            leaderboard_delta,
             placement_discord[index].mention(),
             placement_system_users[index].0,
             placement_system_users[index].1,
