@@ -8,7 +8,6 @@ use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
-use bson::Bson;
 use chrono::Utc;
 use itertools::Itertools;
 use poise::CreateReply;
@@ -280,7 +279,7 @@ pub(crate) async fn review(
     #[description = "ID of game to approve"] game_id: GameID,
     #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
     let found = ctx.data().get_mongo_db().collection::<Game>("games").find_one(
-        doc! { "_id":  Bson::Int64(game_id as i64) }).await?;
+        doc! { "_id":  game_id as i64 }).await?;
     if found.is_none() {
         ctx.send(CreateReply::default()
             .content(":x: that game DNE")
@@ -311,7 +310,7 @@ pub(crate) async fn review(
             let reviewer_id: PlayerID = row.get("player_id");
 
             ctx.data().get_mongo_db().collection::<Game>("games").find_one_and_update(
-                doc! { "_id": Bson::Int64(game_id as i64) },
+                doc! { "_id": game_id as i64 },
                 doc! { "$set": doc! { "approval_status": doc! {
                     "approved": approved,
                     "reviewer": reviewer_id,

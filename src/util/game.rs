@@ -1,6 +1,6 @@
 use crate::model::{Game, GameID, LeagueInfo};
 use crate::BotError;
-use bson::{doc, Bson};
+use bson::doc;
 
 pub(crate) async fn advance_approve_pointer(mongo: &mongodb::Client, mongo_db_name: &str, pg_conn: &deadpool_postgres::Object) -> Result<GameID, BotError> {
     let mut sess = mongo.start_session().await?;
@@ -12,7 +12,7 @@ pub(crate) async fn advance_approve_pointer(mongo: &mongodb::Client, mongo_db_na
 
     let mut first_unreviewed_game = league_info.first_unreviewed_game;
     loop {
-        match mongo.database(&*mongo_db_name).collection::<Game>("games").find_one(doc! { "_id": Bson::Int64(first_unreviewed_game as i64) })
+        match mongo.database(&*mongo_db_name).collection::<Game>("games").find_one(doc! { "_id": first_unreviewed_game as i64 })
             .await? {
             Some(game) => match game.approval_status {
                 Some(approval_status) =>
@@ -32,7 +32,7 @@ pub(crate) async fn advance_approve_pointer(mongo: &mongodb::Client, mongo_db_na
     }
 
     league_info_collection.find_one_and_update(doc! {}, doc! {
-        "first_unreviewed_game": Bson::Int64(first_unreviewed_game as i64),
+        "first_unreviewed_game": first_unreviewed_game as i64,
     }).await?;
 
     Ok(first_unreviewed_game)
