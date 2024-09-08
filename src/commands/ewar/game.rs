@@ -1,14 +1,12 @@
-use crate::util::checks::league_moderators;
-use bson::Bson;
-use std::time::Duration;
-use std::convert::identity;
 use crate::ewar::game::BadPlacementType::*;
 use crate::model::StandingEventVariant::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
+use crate::util::checks::league_moderators;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
+use bson::Bson;
 use chrono::Utc;
 use itertools::Itertools;
 use poise::CreateReply;
@@ -16,6 +14,8 @@ use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, Cr
 use skillratings::trueskill::{trueskill_multi_team, TrueSkillConfig, TrueSkillRating};
 use skillratings::MultiTeamOutcome;
 use std::collections::HashSet;
+use std::convert::identity;
+use std::time::Duration;
 
 enum BadPlacementType {
     DuplicateUser,
