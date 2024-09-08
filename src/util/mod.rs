@@ -1,5 +1,6 @@
 pub(crate) mod checks;
 pub(crate) mod rating;
+pub(crate) mod game;
 
 use crate::Context;
 use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};

@@ -38,14 +38,14 @@ impl BadPlacementType {
 }
 
 /// placements as discord user to (system username, system ID) pair
-async fn placement_discord_to_system(placement: &Vec<User>, conn: deadpool_postgres::Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
+async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: deadpool_postgres::Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
         return Ok(Err(DuplicateUser));
     }
 
     let mut placement_system_users: Vec<(String, PlayerID, TrueSkillRating)> = Vec::with_capacity(placement.len());
     for user in placement.clone().into_iter() {
-        match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id, rating, deviation \
+        match pg_conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id, rating, deviation \
         FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id \
         WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
             None => {
@@ -115,8 +115,8 @@ pub(crate) async fn postgame(
         return Ok(());
     }
 
-    let conn = ctx.data().postgres.get().await?;
-    let placement_system_users = match placement_discord_to_system(&placement_discord, conn).await? {
+    let pg_conn = ctx.data().postgres.get().await?;
+    let placement_system_users = match placement_discord_to_system(&placement_discord, pg_conn).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());
@@ -294,9 +294,9 @@ pub(crate) async fn review(
     }
 
     // find the reviewer's system ID
-    let conn = ctx.data().postgres.get().await?;
+    let pg_conn = ctx.data().postgres.get().await?;
 
-    let Game { _id: game_id, event_number, when, participants, .. } = match conn.query_opt(
+    let Game { _id: game_id, event_number, when, participants, .. } = match pg_conn.query_opt(
         "SELECT player_id FROM player_discord WHERE discord_user_id = $1;",
         &[&(ctx.author().id.get() as i64)]).await? {
         None => {
@@ -321,7 +321,7 @@ pub(crate) async fn review(
 
     if approved {
         // set everyone's last played
-        conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &participants]).await?;
+        pg_conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &participants]).await?;
 
         ctx.send(CreateReply::default()
             .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
@@ -354,8 +354,8 @@ pub(crate) async fn whatif_game(
         user7, user8, user9, user10, user11,
     ].into_iter().filter_map(identity).collect_vec();
 
-    let conn = ctx.data().postgres.get().await?;
-    let placement_system_users = match placement_discord_to_system(&placement_discord, conn).await? {
+    let pg_conn = ctx.data().postgres.get().await?;
+    let placement_system_users = match placement_discord_to_system(&placement_discord, pg_conn).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());

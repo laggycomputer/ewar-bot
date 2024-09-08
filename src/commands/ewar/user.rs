@@ -37,9 +37,9 @@ pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
 async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
     let user = user.as_ref().unwrap_or(ctx.author());
 
-    let conn = ctx.data().postgres.get().await?;
+    let pg_conn = ctx.data().postgres.get().await?;
 
-    let rows = conn.query(
+    let rows = pg_conn.query(
         "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
         ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
         &[&(user.id.get() as i64)]).await?;
@@ -54,9 +54,9 @@ async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] use
 /// look up a player by handle
 #[poise::command(slash_command, prefix_command)]
 async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
-    let conn = ctx.data().postgres.get().await?;
+    let pg_conn = ctx.data().postgres.get().await?;
 
-    let rows = conn.query(
+    let rows = pg_conn.query(
         "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
         ON players.player_id = player_discord.player_id WHERE player_name = $1;",
         &[&handle]).await?;
@@ -71,9 +71,9 @@ async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] ha
 /// look up a player by database ID
 #[poise::command(slash_command, prefix_command)]
 async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: i32) -> Result<(), BotError> {
-    let conn = ctx.data().postgres.get().await?;
+    let pg_conn = ctx.data().postgres.get().await?;
 
-    let rows = conn.query(
+    let rows = pg_conn.query(
         "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
         ON players.player_id = player_discord.player_id WHERE players.player_id = $1;",
         &[&id]).await?;
@@ -89,9 +89,9 @@ async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: i32)
 pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your Discord username - name you want upon registration"] desired_name: Option<String>) -> Result<(), BotError> {
     let proposed_name = desired_name.unwrap_or(ctx.author().name.clone());
 
-    let mut conn = ctx.data().postgres.get().await?;
+    let mut pg_conn = ctx.data().postgres.get().await?;
 
-    match conn.query_opt(
+    match pg_conn.query_opt(
         "SELECT player_discord.player_id, player_name FROM players LEFT JOIN player_discord \
         ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
         &[&(ctx.author().id.get() as i64)]).await? {
@@ -103,7 +103,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
             )).await?;
         }
         None => {
-            if conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&proposed_name.as_str()]).await?.is_some() {
+            if pg_conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&proposed_name.as_str()]).await?.is_some() {
                 ctx.reply(format!("user by name {proposed_name} already exists")).await?;
                 return Ok(());
             }
@@ -120,7 +120,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
                 return Ok(());
             }
 
-            let trans = conn.build_transaction()
+            let trans = pg_conn.build_transaction()
                 .deferrable(true)
                 .start().await?;
 
