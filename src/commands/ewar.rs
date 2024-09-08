@@ -12,6 +12,8 @@ use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
+use skillratings::trueskill::{trueskill_multi_team, TrueSkillRating, TrueSkillConfig};
+use skillratings::MultiTeamOutcome;
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
@@ -172,20 +174,25 @@ impl BadPlacementType {
 }
 
 /// placements as discord user to (system username, system ID) pair
-async fn placement_discord_to_system(placement: &Vec<User>, conn: Object) -> Result<Result<Vec<(String, PlayerID)>, BadPlacementType>, BotError> {
+async fn placement_discord_to_system(placement: &Vec<User>, conn: Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
         return Ok(Err(DuplicateUser));
     }
 
-    let mut placement_system_users: Vec<(String, PlayerID)> = Vec::with_capacity(placement.len());
+    let mut placement_system_users: Vec<(String, PlayerID, TrueSkillRating)> = Vec::with_capacity(placement.len());
     for user in placement.clone().into_iter() {
-        match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
+        match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id, rating, deviation \
+        FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id \
+        WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
             None => {
                 return Ok(Err(UserNotFound { offending: user }))
             }
             Some(row) => {
-                placement_system_users.push((row.get("player_name"), row.get("player_id")));
+                placement_system_users.push((
+                    row.get("player_name"),
+                    row.get("player_id"),
+                    TrueSkillRating::from((row.get("rating"), row.get("deviation")))
+                ));
             }
         }
     };
@@ -257,7 +264,7 @@ pub(crate) async fn postgame(
     let emb_desc = format!(
         "you are logging a game with the following result:\n{}\n",
         placement_discord.iter().zip(placement_system_users.iter()).enumerate()
-            .map(|(index, (discord_user, (handle, id)))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
+            .map(|(index, (discord_user, (handle, id, _)))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
             .join("\n"));
 
     let initial_confirm_button = CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")));
@@ -362,7 +369,7 @@ pub(crate) async fn postgame(
         .await?
         .expect("league_info struct missing");
 
-    let participant_system_ids = placement_system_users.iter().map(|(_, player_id)| *player_id).collect_vec();
+    let participant_system_ids = placement_system_users.iter().map(|(_, player_id, _)| *player_id).collect_vec();
 
     let signed_game = Game {
         _id: available_game_id,
