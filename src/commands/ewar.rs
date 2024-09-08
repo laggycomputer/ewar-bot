@@ -1,3 +1,4 @@
+use crate::commands::ewar::BadPlacementType::{DuplicateUser, UserNotFound};
 use crate::model::StandingEventVariant::GameEnd;
 use crate::model::{Game, GameID, StandingEvent};
 use crate::model::{LeagueInfo, PlayerID};
@@ -6,6 +7,7 @@ use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use bson::{doc, Bson};
 use chrono::Utc;
+use deadpool_postgres::Object;
 use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
@@ -149,6 +151,33 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Username you wan
     Ok(())
 }
 
+enum BadPlacementType {
+    DuplicateUser,
+    UserNotFound { offending: User },
+}
+
+/// placements as discord user to (system username, system ID) pair
+async fn placement_discord_to_system(placement: &Vec<User>, conn: Object) -> Result<Result<Vec<(String, PlayerID)>, BadPlacementType>, BotError> {
+    if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
+        return Ok(Err(DuplicateUser))
+    }
+
+    let mut placement_system_users: Vec<(String, PlayerID)> = Vec::with_capacity(placement.len());
+    for user in placement.clone().into_iter() {
+        match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
+        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
+            None => {
+                return Ok(Err(UserNotFound { offending: user }))
+            }
+            Some(row) => {
+                placement_system_users.push((row.get("player_name"), row.get("player_id")));
+            }
+        }
+    };
+
+    Ok(Ok(placement_system_users))
+}
+
 /// Log a completed game with placement
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn postgame(
@@ -189,44 +218,40 @@ pub(crate) async fn postgame(
 
     let submitted_time = Utc::now();
 
-    let placement = vec![
+    let placement_discord = vec![
         Some(user1), Some(user2), user3, user4, user5, user6,
         user7, user8, user9, user10, user11,
     ].into_iter().filter_map(identity).collect_vec();
 
     // part 1: validate proposed game
-    if placement.iter().all(|u| u != ctx.author()) {
+    if placement_discord.iter().all(|u| u != ctx.author()) {
         ctx.reply(":x: you must be a party to a game to log it").await?;
         return Ok(());
     }
 
-    if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
-        ctx.reply(":x: same user given twice; each player has exactly one ranking!").await?;
-        return Ok(());
-    }
-
     let conn = ctx.data().postgres.get().await?;
-    let mut participants_friendly: Vec<(User, String, PlayerID)> = Vec::with_capacity(placement.len());
-    for user in placement.clone().into_iter() {
-        match conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
-            None => {
-                ctx.send(CreateReply::default()
-                    .embed(base_embed(ctx)
-                        .description(format!("{} has no account on this bot", user.mention())))).await?;
-                return Ok(());
+    let placement_system_users = match placement_discord_to_system(&placement_discord, conn).await? {
+        Err(reason) => {
+            match reason {
+                DuplicateUser => {
+                    ctx.reply(":x: same user given twice; each player has exactly one ranking!").await?;
+                }
+                UserNotFound { offending: user } => {
+                    ctx.send(CreateReply::default()
+                        .embed(base_embed(ctx)
+                            .description(format!("{} has no account on this bot", user.mention())))).await?;
+                }
             }
-            Some(row) => {
-                participants_friendly.push((user, row.get("player_name"), row.get("player_id")));
-            }
-        };
-    }
+            return Ok(());
+        }
+        Ok(ret) => ret
+    };
 
     // part 2: submitter must confirm
     let emb_desc = format!(
         "you are logging a game with the following result:\n{}\n",
-        participants_friendly.iter().enumerate()
-            .map(|(index, (discord_user, handle, id))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
+        placement_discord.iter().zip(placement_system_users.iter()).enumerate()
+            .map(|(index, (discord_user, (handle, id)))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
             .join("\n"));
 
     let initial_confirm_button = CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")));
@@ -247,7 +272,7 @@ pub(crate) async fn postgame(
         return Ok(());
     }
 
-    let mut not_signed_off = placement.clone().into_iter().collect::<HashSet<_>>();
+    let mut not_signed_off = placement_discord.clone().into_iter().collect::<HashSet<_>>();
     not_signed_off.remove(&ctx.author());
 
     // remove "please react below..." and button
@@ -269,7 +294,7 @@ pub(crate) async fn postgame(
             \n\
             ~~struck through~~ players have already signed\n\
             **after 5 minutes of inactivity, game is rejected for submission**",
-            participants_friendly.iter().map(|(user, _, _)| {
+            placement_discord.iter().map(|user| {
                 if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
             }).join("\n")),
         vec![
@@ -284,7 +309,7 @@ pub(crate) async fn postgame(
         .components(signoff_components)).await?
         .into_message().await?;
 
-    while not_signed_off.len() >= ((placement.len() / 2) as f32).ceil() as usize {
+    while not_signed_off.len() >= ((placement_discord.len() / 2) as f32).ceil() as usize {
         let not_signed_off_freeze = not_signed_off.clone();
         match party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
             .filter(move |ixn| {
@@ -331,7 +356,7 @@ pub(crate) async fn postgame(
         .await?
         .expect("league_info struct missing");
 
-    let participant_system_ids = participants_friendly.iter().map(|(_, _, player_id)| *player_id).collect_vec();
+    let participant_system_ids = placement_system_users.iter().map(|(_, player_id)| *player_id).collect_vec();
 
     let signed_game = Game {
         _id: available_game_id,
