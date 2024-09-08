@@ -295,7 +295,7 @@ pub(crate) async fn approve(
     // find the approver's system ID
     let conn = ctx.data().postgres.get().await?;
 
-    let Game {_id: game_id, event_number, when, participants, .. } = match conn.query_opt(
+    let Game { _id: game_id, event_number, when, participants, .. } = match conn.query_opt(
         "SELECT player_id FROM player_discord WHERE discord_user_id = $1;",
         &[&(ctx.author().id.get() as i64)]).await? {
         None => {
@@ -374,11 +374,16 @@ pub(crate) async fn whatif_game(
         .map(|team| team[0])
         .collect_vec();
 
+    let mut rating_supply_delta = 0f64;
+
     let mut leaderboard = String::new();
     for index in 0..placement_discord.len() {
         let old_rating = placement_system_users[index].2;
         let new_rating = new_ratings[index];
         let leaderboard_delta = new_rating.leaderboard_rating() - old_rating.leaderboard_rating();
+
+        rating_supply_delta += new_rating.rating - old_rating.rating;
+
         leaderboard += &*(format!(
             "{}. {} -> {} ({:+.2}): {} ({}, ID {})\n",
             index + 1,
@@ -390,6 +395,8 @@ pub(crate) async fn whatif_game(
             placement_system_users[index].1,
         ))
     }
+
+    leaderboard += &*format!("\n{:+.2} to true rating supply\n", rating_supply_delta);
 
     ctx.reply(leaderboard).await?;
 
