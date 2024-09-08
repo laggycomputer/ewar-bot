@@ -4,7 +4,7 @@ use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
 
 pub(crate) type PlayerID = i32;
-pub(crate) type GameID = u64;
+pub(crate) type GameID = i64;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeagueInfo {
