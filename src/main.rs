@@ -16,12 +16,20 @@ use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
+use mongodb::Database;
 use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {
-    mongo: mongodb::Database,
+    mongo: mongodb::Client,
+    mongo_db_name: Box<str>,
     postgres: deadpool_postgres::Pool,
+}
+
+impl BotVars {
+    fn get_mongo_db(&self) -> Database {
+        self.mongo.database(&*self.mongo_db_name)
+    }
 }
 
 #[tokio::main]
@@ -94,9 +102,8 @@ async fn main() {
                     println!("registered {commands_count} locally in {}", pluralize("guild", guilds_to_register_in.len() as isize, true));
                 }
 
-                let mongo = mongodb::Client::with_uri_str(mongo_uri).await?
-                    .database(&*mongo_db);
-                mongo.run_command(doc! { "ping": 1 }).await?;
+                let mongo = mongodb::Client::with_uri_str(mongo_uri).await?;
+                mongo.database(&*mongo_db).run_command(doc! { "ping": 1 }).await?;
                 println!("mongo ok");
 
                 let pg_config = tokio_postgres::Config::from_str(&*postgres_uri)?;
@@ -109,6 +116,7 @@ async fn main() {
 
                 Ok(BotVars {
                     mongo,
+                    mongo_db_name: mongo_db.into_boxed_str(),
                     postgres: pg_pool,
                 })
             })

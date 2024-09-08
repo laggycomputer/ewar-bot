@@ -1,10 +1,11 @@
 use crate::ewar::game::BadPlacementType::*;
 use crate::model::StandingEventVariant::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
+use crate::util::base_embed;
 use crate::util::checks::league_moderators;
+use crate::util::game::advance_approve_pointer;
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
-use crate::util::base_embed;
 use crate::{BotError, Context};
 use bson::doc;
 use bson::Bson;
@@ -38,7 +39,7 @@ impl BadPlacementType {
 }
 
 /// placements as discord user to (system username, system ID) pair
-async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: deadpool_postgres::Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
+async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_postgres::Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
         return Ok(Err(DuplicateUser));
     }
@@ -116,7 +117,7 @@ pub(crate) async fn postgame(
     }
 
     let pg_conn = ctx.data().postgres.get().await?;
-    let placement_system_users = match placement_discord_to_system(&placement_discord, pg_conn).await? {
+    let placement_system_users = match placement_discord_to_system(&placement_discord, &pg_conn).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());
@@ -192,7 +193,6 @@ pub(crate) async fn postgame(
             .filter(move |ixn| {
                 not_signed_off_freeze.contains(&ixn.user)
             })
-            .custom_ids(vec![String::from("postgame_party_sign")])
             .timeout(Duration::from_secs(5 * 60))
             .await {
             None => {
@@ -227,9 +227,11 @@ pub(crate) async fn postgame(
 
     // increment, but the previous value is what we'll use
     // big idea is to prevent someone else from messing with us, so reserve then use
-    let LeagueInfo { available_game_id, available_event_number, .. } = ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_update(
-        doc! {},
-        doc! { "$inc": doc! { "available_game_id": 1, "available_event_number": 1, } })
+    let LeagueInfo { available_game_id, available_event_number, .. } = ctx.data().get_mongo_db()
+        .collection::<LeagueInfo>("league_info")
+        .find_one_and_update(
+            doc! {},
+            doc! { "$inc": doc! { "available_game_id": 1, "available_event_number": 1, } })
         .await?
         .expect("league_info struct missing");
 
@@ -244,7 +246,7 @@ pub(crate) async fn postgame(
         event_number: available_event_number,
     };
 
-    ctx.data().mongo.collection::<Game>("games").insert_one(signed_game).await?;
+    ctx.data().get_mongo_db().collection::<Game>("games").insert_one(signed_game).await?;
 
     let event = StandingEvent {
         _id: available_event_number,
@@ -253,7 +255,7 @@ pub(crate) async fn postgame(
         when: submitted_time,
     };
 
-    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
+    ctx.data().get_mongo_db().collection::<StandingEvent>("events").insert_one(event).await?;
 
     let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
     party_sign_stage_msg.edit(
@@ -277,7 +279,7 @@ pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
     #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
-    let found = ctx.data().mongo.collection::<Game>("games").find_one(
+    let found = ctx.data().get_mongo_db().collection::<Game>("games").find_one(
         doc! { "_id":  Bson::Int64(game_id as i64) }).await?;
     if found.is_none() {
         ctx.send(CreateReply::default()
@@ -308,7 +310,7 @@ pub(crate) async fn review(
         Some(row) => {
             let reviewer_id: PlayerID = row.get("player_id");
 
-            ctx.data().mongo.collection::<Game>("games").find_one_and_update(
+            ctx.data().get_mongo_db().collection::<Game>("games").find_one_and_update(
                 doc! { "_id": Bson::Int64(game_id as i64) },
                 doc! { "$set": doc! { "approval_status": doc! {
                     "approved": approved,
@@ -329,6 +331,8 @@ pub(crate) async fn review(
         ctx.send(CreateReply::default()
             .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
     }
+
+    advance_approve_pointer(&ctx.data().mongo, &*ctx.data().mongo_db_name, &pg_conn).await?;
     Ok(())
 }
 
@@ -354,8 +358,8 @@ pub(crate) async fn whatif_game(
         user7, user8, user9, user10, user11,
     ].into_iter().filter_map(identity).collect_vec();
 
-    let pg_conn = ctx.data().postgres.get().await?;
-    let placement_system_users = match placement_discord_to_system(&placement_discord, pg_conn).await? {
+    let conn = ctx.data().postgres.get().await?;
+    let placement_system_users = match placement_discord_to_system(&placement_discord, &conn).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());
