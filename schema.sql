@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS players
     player_name VARCHAR(32)      NOT NULL,
     rating      DOUBLE PRECISION NOT NULL DEFAULT 18,
     deviation   DOUBLE PRECISION NOT NULL DEFAULT 9,
-    last_played DATE,
+    last_played TIMESTAMP WITHOUT TIME ZONE,
     UNIQUE (player_name)
 );
 
