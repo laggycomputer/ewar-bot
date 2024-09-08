@@ -1,9 +1,10 @@
 use crate::ewar::game::BadPlacementType::*;
 use crate::model::StandingEventVariant::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
-use crate::util::base_embed;
 use crate::util::checks::league_moderators;
+use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
+use crate::util::base_embed;
 use crate::{BotError, Context};
 use bson::doc;
 use bson::Bson;
@@ -11,8 +12,7 @@ use chrono::Utc;
 use itertools::Itertools;
 use poise::CreateReply;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
-use skillratings::trueskill::{trueskill_multi_team, TrueSkillConfig, TrueSkillRating};
-use skillratings::MultiTeamOutcome;
+use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
@@ -354,25 +354,9 @@ pub(crate) async fn whatif_game(
         Ok(ret) => ret
     };
 
-    let ratings = placement_system_users.iter()
-        .map(|(_, _, rating)| vec![*rating])
-        .collect_vec();
-
-    // each team has exactly 1 player
-    let new_ratings = trueskill_multi_team(
-        ratings.iter()
-            .enumerate()
-            .map(|(index, rating)| (&rating[..], MultiTeamOutcome::new(index + 1)))
-            .collect_vec()
-            .as_slice(),
-        &TrueSkillConfig {
-            draw_probability: 0f64,
-            beta: 2f64,
-            // aka tau
-            default_dynamics: 0.04,
-        }).into_iter()
-        .map(|team| team[0])
-        .collect_vec();
+    let new_ratings = game_affect_ratings(&placement_system_users.iter()
+        .map(|(_, _, rating)| *rating)
+        .collect_vec());
 
     let mut rating_supply_delta = 0f64;
 
