@@ -7,7 +7,6 @@ use crate::commands::{ewar, maint, meta};
 use clap::ValueHint;
 use itertools::Itertools;
 use mongodb::bson::doc;
-use mongodb::Database;
 use pluralizer::pluralize;
 use poise::{FrameworkOptions, PrefixFrameworkOptions};
 use serenity::all::GatewayIntents;
@@ -21,7 +20,7 @@ use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {
-    mongo: Database,
+    mongo: mongodb::Database,
     postgres: deadpool_postgres::Pool,
 }
 
