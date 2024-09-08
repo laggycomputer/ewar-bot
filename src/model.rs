@@ -14,6 +14,12 @@ pub(crate) struct LeagueInfo {
 }
 
 #[derive(Serialize, Deserialize)]
+pub(crate) struct ApprovalStatus {
+    approved: bool,
+    reviewer: PlayerID,
+}
+
+#[derive(Serialize, Deserialize)]
 pub(crate) struct Game {
     pub(crate) _id: GameID,
     // in placement order
@@ -22,8 +28,7 @@ pub(crate) struct Game {
     pub(crate) length: u32,
     // time submitted to system
     pub(crate) when: chrono::DateTime<Utc>,
-    pub(crate) approved: Option<bool>,
-    pub(crate) reviewer: Option<PlayerID>,
+    pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) event_number: EventNumber,
 }
 

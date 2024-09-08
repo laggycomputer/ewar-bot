@@ -240,8 +240,7 @@ pub(crate) async fn postgame(
         participants: participant_system_ids.clone(),
         length: time_seconds,
         when: submitted_time,
-        approved: None,
-        reviewer: None,
+        approval_status: None,
         event_number: available_event_number,
     };
 
@@ -286,7 +285,7 @@ pub(crate) async fn approve(
         return Ok(());
     }
 
-    if found.unwrap().reviewer.is_some() {
+    if found.unwrap().approval_status.is_some() {
         ctx.send(CreateReply::default()
             .content(":x: that game already approved")
             .ephemeral(true)).await?;
@@ -310,7 +309,10 @@ pub(crate) async fn approve(
 
             ctx.data().mongo.collection::<Game>("games").find_one_and_update(
                 doc! { "_id": Bson::Int64(game_id as i64) },
-                doc! { "$set": doc! { "approved": Some(true), "reviewer": Some(reviewer_id) } })
+                doc! { "$set": doc! { "approval_status": doc! {
+                    "approved": true,
+                    "reviewer": reviewer_id,
+                } } })
                 .await?
                 .expect("game magically disappeared")
         }
