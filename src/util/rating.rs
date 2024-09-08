@@ -15,9 +15,9 @@ impl RatingExtra for TrueSkillRating {
 
     fn leaderboard_rating(&self) -> f64 {
         if self.is_provisional() {
-            10f64 * self.rating
-        } else {
             10f64 * (self.rating - self.uncertainty)
+        } else {
+            10f64 * self.rating
         }
     }
 
