@@ -370,7 +370,7 @@ pub(crate) async fn whatif_game(
         rating_supply_delta += new_rating.rating - old_rating.rating;
 
         leaderboard += &*(format!(
-            "{}. {} -> {} ({:+.2}): {} ({}, ID {})\n",
+            "{}. {} → {} ({:+.2}): {} ({}, ID {})\n",
             index + 1,
             old_rating.format_rating(),
             new_rating.format_rating(),
