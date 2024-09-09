@@ -45,7 +45,7 @@ async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_p
 
     let mut placement_system_users: Vec<(String, PlayerID, TrueSkillRating)> = Vec::with_capacity(placement.len());
     for user in placement.clone().into_iter() {
-        match pg_conn.query_opt("SELECT player_name, player_discord.player_id, discord_user_id, rating, deviation \
+        match pg_conn.query_opt("SELECT player_name, player_discord.player_id, rating, deviation \
         FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id \
         WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
             None => {
