@@ -404,7 +404,9 @@ pub(crate) async fn whatif_game(
 
     leaderboard += &*format!("\n{:+.2} to true rating supply\n", rating_supply_delta);
 
-    ctx.reply(leaderboard).await?;
+    ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .description(leaderboard))).await?;
 
     Ok(())
 }
