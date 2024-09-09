@@ -157,9 +157,6 @@ pub(crate) async fn postgame(
         CreateInteractionResponseMessage::new()
             .embed(base_embed(ctx)
                 .description(emb_desc))
-            .components(vec![
-                CreateActionRow::Buttons(vec![
-                    initial_confirm_button.disabled(true)])])
     )).await?;
 
     // part 3: parties to game must sign
