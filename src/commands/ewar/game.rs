@@ -3,7 +3,7 @@ use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::league_moderators;
-use crate::util::game::advance_approve_pointer;
+use crate::util::rating::advance_approve_pointer;
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
