@@ -1,4 +1,4 @@
-use crate::model::StandingEventVariant::GameEnd;
+use crate::model::StandingEventInner::GameEnd;
 use crate::model::{EventNumber, Game, LeagueInfo, StandingEvent};
 use crate::util::rating::{game_affect_ratings, RatingExtra};
 use crate::{BotError, BotVars};

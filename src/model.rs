@@ -33,7 +33,7 @@ pub(crate) struct Game {
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) enum StandingEventVariant {
+pub(crate) enum StandingEventInner {
     // remove rating for foul play
     Penalty { victim: Vec<PlayerID>, amount: f64, reason: String },
     // add deviation for inactivity
@@ -46,7 +46,7 @@ pub(crate) enum StandingEventVariant {
 pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
-    pub(crate) event_type: StandingEventVariant,
+    pub(crate) event_type: StandingEventInner,
     pub(crate) when: chrono::DateTime<Utc>,
 }
 

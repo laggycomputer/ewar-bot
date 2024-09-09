@@ -1,5 +1,5 @@
 use crate::ewar::game::BadPlacementType::*;
-use crate::model::StandingEventVariant::GameEnd;
+use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::league_moderators;
