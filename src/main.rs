@@ -4,7 +4,6 @@ mod commands;
 mod model;
 
 use crate::commands::{ewar, maint, meta};
-use crate::model::PlayerID;
 use clap::ValueHint;
 use itertools::Itertools;
 use mongodb::bson::doc;
@@ -13,7 +12,6 @@ use poise::{FrameworkOptions, PrefixFrameworkOptions};
 use serenity::all::GatewayIntents;
 use serenity::all::GuildId;
 use serenity::Client;
-use std::collections::HashSet;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
@@ -25,7 +23,7 @@ use yaml_rust2::YamlLoader;
 struct BotVars {
     mongo: mongodb::Database,
     postgres: deadpool_postgres::Pool,
-    update_ratings_lock: HashSet<PlayerID, Arc<Mutex<()>>>
+    update_ratings_lock: Arc<Mutex<()>>
 }
 
 #[tokio::main]
