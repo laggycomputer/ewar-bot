@@ -31,8 +31,8 @@ impl RatingExtra for TrueSkillRating {
     }
 }
 
-pub(crate) fn game_affect_ratings(placement_system_users: &Vec<TrueSkillRating>) -> Vec<TrueSkillRating> {
-    let ratings = placement_system_users.iter()
+pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueSkillRating> {
+    let ratings = placement.iter()
         .map(|rating| vec![*rating])
         .collect_vec();
 
