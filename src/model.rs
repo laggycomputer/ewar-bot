@@ -3,12 +3,13 @@ use serde::{Deserialize, Serialize};
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
 
-pub(crate) type PlayerID = i32;
+pub(crate) type EventNumber = u32;
 pub(crate) type GameID = i64;
+pub(crate) type PlayerID = i32;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeagueInfo {
-    pub(crate) first_unreviewed_game: GameID,
+    pub(crate) first_unreviewed_event_number: EventNumber,
     pub(crate) available_game_id: GameID,
     pub(crate) available_event_number: EventNumber,
 }
@@ -28,26 +29,23 @@ pub(crate) struct Game {
     pub(crate) length: u32,
     // time submitted to system
     pub(crate) when: chrono::DateTime<Utc>,
-    pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) event_number: EventNumber,
 }
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum StandingEventVariant {
     // remove rating for foul play
-    Penalty { amount: f64, reason: String },
+    Penalty { victim: Vec<PlayerID>, amount: f64, reason: String },
     // add deviation for inactivity
-    InactivityDecay { amount: f64 },
+    InactivityDecay { victim: Vec<PlayerID>, amount: f64 },
     // regular game
     GameEnd { game_id: GameID },
 }
 
-type EventNumber = u32;
-
 #[derive(Serialize, Deserialize)]
 pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
-    pub(crate) affected: Vec<PlayerID>,
+    pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) event_type: StandingEventVariant,
     pub(crate) when: chrono::DateTime<Utc>,
 }

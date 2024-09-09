@@ -239,7 +239,6 @@ pub(crate) async fn postgame(
         participants: participant_system_ids.clone(),
         length: time_seconds,
         when: submitted_time,
-        approval_status: None,
         event_number: available_event_number,
     };
 
@@ -247,7 +246,7 @@ pub(crate) async fn postgame(
 
     let event = StandingEvent {
         _id: available_event_number,
-        affected: participant_system_ids,
+        approval_status: None,
         event_type: GameEnd { game_id: available_game_id },
         when: submitted_time,
     };
@@ -276,16 +275,29 @@ pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
     #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
-    let found = ctx.data().mongo.collection::<Game>("games").find_one(
-        doc! { "_id":  game_id as i64 }).await?;
-    if found.is_none() {
-        ctx.send(CreateReply::default()
-            .content(":x: that game DNE")
-            .ephemeral(true)).await?;
-        return Ok(());
-    }
+    let Game { participants, .. } = match ctx.data().mongo.collection::<Game>("games").find_one(
+        doc! { "_id": game_id as i64 }).await? {
+        None => {
+            ctx.send(CreateReply::default()
+                .content(":x: that game DNE")
+                .ephemeral(true)).await?;
+            return Ok(());
+        }
+        Some(game) => game
+    };
 
-    if found.unwrap().approval_status.is_some() {
+    let corresponding_event = match ctx.data().mongo.collection::<StandingEvent>("events").find_one(doc! {
+        "event_type": doc! { "GameEnd": doc! { "game_id": game_id } }
+    }).await? {
+        None => {
+            ctx.send(CreateReply::default()
+                .content(":x: that event is not a game")
+                .ephemeral(true)).await?;
+            return Ok(());
+        }
+        Some(evt) => evt
+    };
+    if corresponding_event.approval_status.is_some() {
         ctx.send(CreateReply::default()
             .content(":x: that game already reviewed")
             .ephemeral(true)).await?;
@@ -295,7 +307,7 @@ pub(crate) async fn review(
     // find the reviewer's system ID
     let pg_conn = ctx.data().postgres.get().await?;
 
-    let Game { _id: game_id, event_number, when, participants, .. } = match pg_conn.query_opt(
+    let StandingEvent { _id: event_number, when, .. } = match pg_conn.query_opt(
         "SELECT player_id FROM player_discord WHERE discord_user_id = $1;",
         &[&(ctx.author().id.get() as i64)]).await? {
         None => {
@@ -307,14 +319,14 @@ pub(crate) async fn review(
         Some(row) => {
             let reviewer_id: PlayerID = row.get("player_id");
 
-            ctx.data().mongo.collection::<Game>("games").find_one_and_update(
-                doc! { "_id": game_id as i64 },
+            ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
+                doc! { "_id": corresponding_event._id },
                 doc! { "$set": doc! { "approval_status": doc! {
                     "approved": approved,
                     "reviewer": reviewer_id,
                 } } })
                 .await?
-                .expect("game magically disappeared")
+                .expect("standing event magically disappeared")
         }
     };
 
