@@ -16,14 +16,13 @@ use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
 use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {
     mongo: mongodb::Database,
     postgres: deadpool_postgres::Pool,
-    update_ratings_lock: Arc<Mutex<()>>
+    update_ratings_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>
 }
 
 #[tokio::main]
