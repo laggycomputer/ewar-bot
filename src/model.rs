@@ -49,10 +49,12 @@ pub(crate) enum StandingEventInner {
 
 impl StandingEventInner {
     pub(crate) async fn process_effect(&self, data: &BotVars, pg_trans: &deadpool_postgres::Transaction<'_>) -> Result<(), BotError> {
-        let prepared_select = pg_trans.prepare_typed_cached("SELECT rating, deviation FROM players WHERE player_id = $1;",
-                                                            &[Type::INT4]).await?;
-        let prepared_update = pg_trans.prepare_typed_cached("UPDATE players SET rating = $1, deviation = $2 WHERE player_id = $3;",
-                                                            &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
+        let prepared_select = pg_trans.prepare_typed_cached(
+            "SELECT rating, deviation FROM players WHERE player_id = $1;",
+            &[Type::INT4]).await?;
+        let prepared_update = pg_trans.prepare_typed_cached(
+            "UPDATE players SET rating = $1, deviation = $2 WHERE player_id = $3;",
+            &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
 
         match self {
             StandingEventInner::GameEnd { game_id } => {
