@@ -40,9 +40,9 @@ pub(crate) struct Game {
 #[non_exhaustive]
 pub(crate) enum StandingEventInner {
     // remove rating for foul play
-    Penalty { victims: Vec<PlayerID>, amount: f64, reason: String },
+    Penalty { victims: Vec<PlayerID>, delta_rating: f64, reason: String },
     // add deviation for inactivity
-    InactivityDecay { victims: Vec<PlayerID>, amount: f64 },
+    InactivityDecay { victims: Vec<PlayerID>, delta_deviation: f64 },
     // regular game
     GameEnd { game_id: GameID },
 }
