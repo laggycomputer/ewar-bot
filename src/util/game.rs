@@ -8,7 +8,7 @@ use tokio_postgres::types::Type;
 
 pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<GameID, BotError> {
     let mutex = data.update_ratings_lock.clone();
-    let locked = mutex.lock().await;
+    mutex.lock().await;
 
     let mut pg_conn = data.postgres.get().await?;
     let pg_trans = pg_conn.build_transaction().start().await?;
@@ -49,12 +49,10 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<GameID, Bo
         }
     }
 
+    pg_trans.commit().await?;
     league_info_collection.find_one_and_update(doc! {}, doc! {
         "$max": doc! { "first_unreviewed_game": first_unreviewed_game as i64 },
     }).await?;
-
-    // be maximally explicit about this
-    drop(locked);
 
     Ok(first_unreviewed_game)
 }
