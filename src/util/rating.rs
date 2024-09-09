@@ -1,12 +1,10 @@
+use crate::model::{EventNumber, LeagueInfo, StandingEvent};
+use crate::{BotError, BotVars};
+use bson::doc;
+use futures::StreamExt;
 use itertools::Itertools;
 use skillratings::trueskill::{trueskill_multi_team, TrueSkillConfig, TrueSkillRating};
 use skillratings::MultiTeamOutcome;
-use bson::doc;
-use tokio_postgres::types::Type;
-use futures::StreamExt;
-use crate::{BotError, BotVars};
-use crate::model::{EventNumber, Game, LeagueInfo, StandingEvent};
-use crate::model::StandingEventInner::GameEnd;
 
 pub(crate) trait RatingExtra {
     fn from_row(row: tokio_postgres::Row) -> Self;
@@ -78,34 +76,15 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<EventNumbe
         .find(doc! { "_id": doc! {"$gt": first_unreviewed_event_number_num } })
         .sort(doc! { "_id": 1 }).await?;
 
-    let prepared_select = pg_trans.prepare_typed_cached("SELECT rating, deviation FROM players WHERE player_id = $1;",
-                                                        &[Type::INT4]).await?;
-    let prepared_update = pg_trans.prepare_typed_cached("UPDATE players SET rating = $1, deviation = $2 WHERE player_id = $3;",
-                                                        &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
-
     while let Some(standing_event) = allegedly_unreviewed.next().await {
         let standing_event = standing_event?;
-        if let StandingEvent { inner: GameEnd { game_id }, approval_status, .. } = standing_event {
-            // TODO: things other than games exist here
-            let game = data.mongo.collection::<Game>("games").find_one(doc! { "_id": game_id }).await?
-                .expect("standing event points to game which DNE");
-
-            match approval_status {
-                None => break,
-                Some(approval_status) => {
-                    first_unreviewed_event_number_num += 1;
-                    if approval_status.approved {
-                        let mut old_ratings = Vec::with_capacity(game.participants.len());
-                        for party_id in game.participants.iter() {
-                            let row = pg_trans.query_one(&prepared_select, &[party_id]).await?;
-                            old_ratings.push(TrueSkillRating::from_row(row));
-                        }
-
-                        let new_ratings = game_affect_ratings(&old_ratings);
-                        for (party_id, new_rating) in game.participants.into_iter().zip(new_ratings.into_iter()) {
-                            pg_trans.execute(&prepared_update, &[&new_rating.rating, &new_rating.uncertainty, &party_id]).await?;
-                        }
-                    }
+        let StandingEvent { inner, approval_status, .. } = standing_event;
+        match approval_status {
+            None => break,
+            Some(approval_status) => {
+                first_unreviewed_event_number_num += 1;
+                if approval_status.approved {
+                    inner.process_effect(data, &pg_trans).await?;
                 }
             }
         }
