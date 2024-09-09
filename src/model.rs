@@ -45,6 +45,8 @@ pub(crate) enum StandingEventInner {
     InactivityDecay { victims: Vec<PlayerID>, delta_deviation: f64 },
     // regular game
     GameEnd { game_id: GameID },
+    SetStanding { victim: PlayerID, new_rating: Option<f64>, new_deviation: Option<f64>, reason: String },
+    ChangeStanding { victim: PlayerID, delta_rating: Option<f64>, delta_deviation: Option<f64>, reason: String },
 }
 
 impl StandingEventInner {
