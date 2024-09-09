@@ -263,7 +263,7 @@ pub(crate) async fn postgame(
     // part 4: moderator must sign
     ctx.send(CreateReply::default().content(format!(
         "ok, game with ID {available_game_id} submitted for moderator verification\n\
-        **any moderator, please approve or reject this game with `/approve {available_game_id}`.**",
+        **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
     )))
         .await?;
 
