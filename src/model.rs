@@ -37,6 +37,7 @@ pub(crate) struct Game {
 }
 
 #[derive(Serialize, Deserialize)]
+#[non_exhaustive]
 pub(crate) enum StandingEventInner {
     // remove rating for foul play
     Penalty { victim: Vec<PlayerID>, amount: f64, reason: String },
@@ -54,8 +55,6 @@ impl StandingEventInner {
                                                             &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
 
         match self {
-            StandingEventInner::Penalty { .. } => {}
-            StandingEventInner::InactivityDecay { .. } => {}
             StandingEventInner::GameEnd { game_id } => {
                 let game = data.mongo.collection::<Game>("games").find_one(doc! { "_id": game_id }).await?
                     .expect("standing event points to game which DNE");
@@ -71,6 +70,7 @@ impl StandingEventInner {
                     pg_trans.execute(&prepared_update, &[&new_rating.rating, &new_rating.uncertainty, &party_id]).await?;
                 }
             }
+            _ => return Err("don't know how to handle this event type yet".into())
         }
 
         Ok(())
