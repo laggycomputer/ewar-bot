@@ -223,7 +223,7 @@ pub(crate) async fn postgame(
 
     // increment, but the previous value is what we'll use
     // big idea is to prevent someone else from messing with us, so reserve then use
-    let LeagueInfo { available_game_id, available_event_number, .. } = ctx.data().get_mongo_db()
+    let LeagueInfo { available_game_id, available_event_number, .. } = ctx.data().mongo
         .collection::<LeagueInfo>("league_info")
         .find_one_and_update(
             doc! {},
@@ -242,7 +242,7 @@ pub(crate) async fn postgame(
         event_number: available_event_number,
     };
 
-    ctx.data().get_mongo_db().collection::<Game>("games").insert_one(signed_game).await?;
+    ctx.data().mongo.collection::<Game>("games").insert_one(signed_game).await?;
 
     let event = StandingEvent {
         _id: available_event_number,
@@ -251,7 +251,7 @@ pub(crate) async fn postgame(
         when: submitted_time,
     };
 
-    ctx.data().get_mongo_db().collection::<StandingEvent>("events").insert_one(event).await?;
+    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
 
     let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
     party_sign_stage_msg.edit(
@@ -275,7 +275,7 @@ pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
     #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
-    let found = ctx.data().get_mongo_db().collection::<Game>("games").find_one(
+    let found = ctx.data().mongo.collection::<Game>("games").find_one(
         doc! { "_id":  game_id as i64 }).await?;
     if found.is_none() {
         ctx.send(CreateReply::default()
@@ -306,7 +306,7 @@ pub(crate) async fn review(
         Some(row) => {
             let reviewer_id: PlayerID = row.get("player_id");
 
-            ctx.data().get_mongo_db().collection::<Game>("games").find_one_and_update(
+            ctx.data().mongo.collection::<Game>("games").find_one_and_update(
                 doc! { "_id": game_id as i64 },
                 doc! { "$set": doc! { "approval_status": doc! {
                     "approved": approved,
@@ -328,7 +328,7 @@ pub(crate) async fn review(
             .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
     }
 
-    advance_approve_pointer(&ctx.data().mongo, &*ctx.data().mongo_db_name, &pg_conn).await?;
+    advance_approve_pointer(&ctx.data()).await?;
     Ok(())
 }
 
