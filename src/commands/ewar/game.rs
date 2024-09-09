@@ -247,7 +247,7 @@ pub(crate) async fn postgame(
     let event = StandingEvent {
         _id: available_event_number,
         approval_status: None,
-        event_type: GameEnd { game_id: available_game_id },
+        inner: GameEnd { game_id: available_game_id },
         when: submitted_time,
     };
 
@@ -287,7 +287,7 @@ pub(crate) async fn review(
     };
 
     let corresponding_event = match ctx.data().mongo.collection::<StandingEvent>("events").find_one(doc! {
-        "event_type": doc! { "GameEnd": doc! { "game_id": game_id } }
+        "inner": doc! { "GameEnd": doc! { "game_id": game_id } }
     }).await? {
         None => {
             ctx.send(CreateReply::default()

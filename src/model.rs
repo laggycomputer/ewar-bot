@@ -46,7 +46,7 @@ pub(crate) enum StandingEventInner {
 pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
-    pub(crate) event_type: StandingEventInner,
+    pub(crate) inner: StandingEventInner,
     pub(crate) when: chrono::DateTime<Utc>,
 }
 

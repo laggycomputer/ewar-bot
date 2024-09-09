@@ -85,7 +85,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<EventNumbe
 
     while let Some(standing_event) = allegedly_unreviewed.next().await {
         let standing_event = standing_event?;
-        if let StandingEvent { event_type: GameEnd { game_id }, approval_status, .. } = standing_event {
+        if let StandingEvent { inner: GameEnd { game_id }, approval_status, .. } = standing_event {
             // TODO: things other than games exist here
             let game = data.mongo.collection::<Game>("games").find_one(doc! { "_id": game_id }).await?
                 .expect("standing event points to game which DNE");
