@@ -1,3 +1,4 @@
+use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, Penalty};
 use crate::util::rating::{game_affect_ratings, RatingExtra};
 use crate::{BotError, BotVars};
 use bson::doc;
@@ -36,7 +37,7 @@ pub(crate) struct Game {
     pub(crate) event_number: EventNumber,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub(crate) enum StandingEventInner {
     // remove rating for foul play
@@ -45,21 +46,46 @@ pub(crate) enum StandingEventInner {
     InactivityDecay { victims: Vec<PlayerID>, delta_deviation: f64 },
     // regular game
     GameEnd { game_id: GameID },
-    SetStanding { victim: PlayerID, new_rating: Option<f64>, new_deviation: Option<f64>, reason: String },
-    ChangeStanding { victim: PlayerID, delta_rating: Option<f64>, delta_deviation: Option<f64>, reason: String },
+    SetStanding { victims: Vec<PlayerID>, new_rating: Option<f64>, new_deviation: Option<f64>, reason: String },
+    ChangeStanding { victims: Vec<PlayerID>, delta_rating: Option<f64>, delta_deviation: Option<f64>, reason: String },
 }
 
 impl StandingEventInner {
-    pub(crate) async fn process_effect(&self, data: &BotVars, pg_trans: &deadpool_postgres::Transaction<'_>) -> Result<(), BotError> {
-        let prepared_select = pg_trans.prepare_typed_cached(
-            "SELECT rating, deviation FROM players WHERE player_id = $1;",
-            &[Type::INT4]).await?;
-        let prepared_update = pg_trans.prepare_typed_cached(
-            "UPDATE players SET rating = $1, deviation = $2 WHERE player_id = $3;",
-            &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
-
+    /// convert to a different type to simplify handling
+    fn try_into_generic_variant(self) -> Option<Self> {
         match self {
-            StandingEventInner::GameEnd { game_id } => {
+            Penalty { victims, delta_rating, reason } => Some(ChangeStanding {
+                victims,
+                delta_rating: Some(delta_rating),
+                reason,
+                delta_deviation: None,
+            }),
+            InactivityDecay { victims, delta_deviation } => Some(ChangeStanding {
+                victims,
+                delta_rating: None,
+                delta_deviation: Some(delta_deviation),
+                reason: String::new(),
+            }),
+            _ => None
+        }
+    }
+
+    pub(crate) async fn process_effect(&self, data: &BotVars, pg_trans: &deadpool_postgres::Transaction<'_>) -> Result<(), BotError> {
+        let self_processable = match self {
+            Penalty { .. } | InactivityDecay { .. } => &self.clone()
+                .try_into_generic_variant().expect("1984"),
+            _ => self
+        };
+
+        match self_processable {
+            GameEnd { game_id } => {
+                let prepared_select = pg_trans.prepare_typed_cached(
+                    "SELECT rating, deviation FROM players WHERE player_id = $1;",
+                    &[Type::INT4]).await?;
+                let prepared_update = pg_trans.prepare_typed_cached(
+                    "UPDATE players SET rating = $1, deviation = $2 WHERE player_id = $3;",
+                    &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
+
                 let game = data.mongo.collection::<Game>("games").find_one(doc! { "_id": game_id }).await?
                     .expect("standing event points to game which DNE");
 
@@ -72,6 +98,15 @@ impl StandingEventInner {
                 let new_ratings = game_affect_ratings(&old_ratings);
                 for (party_id, new_rating) in game.participants.into_iter().zip(new_ratings.into_iter()) {
                     pg_trans.execute(&prepared_update, &[&new_rating.rating, &new_rating.uncertainty, &party_id]).await?;
+                }
+            }
+            ChangeStanding { victims, delta_rating, delta_deviation, .. } => {
+                if let Some(delta_rating) = delta_rating {
+                    pg_trans.execute("UPDATE players SET rating = rating + $1 WHERE player_id = ANY($2);", &[delta_rating, &victims]).await?;
+                }
+
+                if let Some(delta_deviation) = delta_deviation {
+                    pg_trans.execute("UPDATE players SET deviation = deviation + $1 WHERE player_id = ANY($2);", &[delta_deviation, &victims]).await?;
                 }
             }
             _ => return Err("don't know how to handle this event type yet".into())
