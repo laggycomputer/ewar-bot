@@ -16,4 +16,4 @@ CREATE TABLE IF NOT EXISTS player_discord
     UNIQUE (player_id, discord_user_id)
 );
 
-CREATE INDEX discord_user_id ON player_discord (discord_user_id);
+CREATE INDEX IF NOT EXISTS discord_user_id ON player_discord (discord_user_id);
