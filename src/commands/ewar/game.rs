@@ -276,7 +276,7 @@ pub(crate) async fn postgame(
 
     // part 4: moderator must sign
     ctx.send(CreateReply::default().content(
-        if !poster_not_moderator {
+        if poster_not_moderator {
             format!(
                 "ok, game with ID {available_game_id} submitted for moderator verification\n\
             **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
