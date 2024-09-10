@@ -1,14 +1,51 @@
+use crate::model::PlayerID;
+use crate::util::{base_embed, remove_markdown};
+use crate::{BotError, Context};
 use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
-use serenity::all::User;
-use tokio_postgres::Row;
-use crate::{BotError, Context};
-use crate::util::{base_embed, remove_markdown};
+use serenity::all::{Mentionable, User, UserId};
+
+enum UserLookupType<'a> {
+    DiscordID(u64),
+    SystemHandle(&'a str),
+    SystemID(PlayerID),
+}
+
+async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupType<'_>)
+                         -> Result<Option<(PlayerID, Box<str>, Vec<UserId>)>, BotError> {
+    match match how {
+        // try to get a row
+        UserLookupType::DiscordID(id) => pg_conn.query_opt(
+            "SELECT player_id FROM player_discord WHERE discord_user_id = $1::BIGINT;",
+            &[&(id as i64)]).await?,
+        UserLookupType::SystemHandle(handle) => pg_conn.query_opt(
+            "SELECT player_id FROM players WHERE player_name = $1;",
+            &[&handle]).await?,
+        UserLookupType::SystemID(id) => pg_conn.query_opt(
+            "SELECT player_id FROM players WHERE player_id = $1;",
+            &[&id]).await?,
+    } {
+        // check if it's there
+        None => Ok(None),
+        Some(row) => {
+            let player_id = row.get::<&str, PlayerID>("player_id");
+            Ok(Some((
+                player_id,
+                row.get::<&str, String>("player_name").into_boxed_str(),
+                pg_conn.query("SELECT discord_user_id FROM player_discord WHERE player_id = $1;", &[&player_id]).await?
+                    .into_iter().map(|row| (row.get::<&str, i64>("discord_user_id") as u64).into())
+                    .collect_vec()
+            )))
+        }
+    }
+}
 
 /// shared postlude to every lookup method; just show the user
-async fn lookup_result(ctx: Context<'_>, rows: Vec<Row>) -> Result<(), BotError> {
-    let mut assoc_accounts = rows.iter().map(|row| format!("<@{}>", row.get::<&str, i64>("discord_user_id"))).join(", ");
+async fn display_lookup_result(ctx: Context<'_>, looked_up: (PlayerID, Box<str>, Vec<UserId>)) -> Result<(), BotError> {
+    let (system_id, system_handle, discord_ids) = looked_up;
+
+    let mut assoc_accounts = discord_ids.iter().map(UserId::mention).join(", ");
     if assoc_accounts.is_empty() {
         assoc_accounts = String::from("<none>")
     }
@@ -16,8 +53,8 @@ async fn lookup_result(ctx: Context<'_>, rows: Vec<Row>) -> Result<(), BotError>
     ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
             .field("user", format!("{} (ID {})",
-                                   remove_markdown(rows[0].get::<&str, String>("player_name")),
-                                   rows[0].get::<&str, i32>("player_id")), true)
+                                   remove_markdown(String::from(system_handle)),
+                                   system_id), true)
             .field("rating stuff", "todo", true)
             .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
 
@@ -37,52 +74,46 @@ pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
 async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
     let user = user.as_ref().unwrap_or(ctx.author());
 
-    let pg_conn = ctx.data().postgres.get().await?;
-
-    let rows = pg_conn.query(
-        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_discord.discord_user_id = $1::BIGINT;",
-        &[&(user.id.get() as i64)]).await?;
-    if rows.is_empty() {
-        ctx.reply("could not find player with that discord user").await?;
-        return Ok(());
+    match try_lookup_user(&ctx.data().postgres.get().await?, UserLookupType::DiscordID(user.id.into())).await? {
+        None => {
+            ctx.reply("could not find player with that discord user").await?;
+        }
+        Some(looked_up) => {
+            display_lookup_result(ctx, looked_up).await?
+        }
     }
 
-    lookup_result(ctx, rows).await
+    Ok(())
 }
 
 /// look up a player by handle
 #[poise::command(slash_command, prefix_command)]
 async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
-    let pg_conn = ctx.data().postgres.get().await?;
-
-    let rows = pg_conn.query(
-        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE player_name = $1;",
-        &[&handle]).await?;
-    if rows.is_empty() {
-        ctx.reply("could not find player by that handle").await?;
-        return Ok(());
+    match try_lookup_user(&ctx.data().postgres.get().await?, UserLookupType::SystemHandle(handle.as_str())).await? {
+        None => {
+            ctx.reply("could not find player by that handle").await?;
+        }
+        Some(looked_up) => {
+            display_lookup_result(ctx, looked_up).await?
+        }
     }
 
-    lookup_result(ctx, rows).await
+    Ok(())
 }
 
 /// look up a player by database ID
 #[poise::command(slash_command, prefix_command)]
-async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: i32) -> Result<(), BotError> {
-    let pg_conn = ctx.data().postgres.get().await?;
-
-    let rows = pg_conn.query(
-        "SELECT player_name, player_discord.player_id, discord_user_id FROM players LEFT JOIN player_discord \
-        ON players.player_id = player_discord.player_id WHERE players.player_id = $1;",
-        &[&id]).await?;
-    if rows.is_empty() {
-        ctx.reply("could not find player by that ID").await?;
-        return Ok(());
+async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: PlayerID) -> Result<(), BotError> {
+    match try_lookup_user(&ctx.data().postgres.get().await?, UserLookupType::SystemID(id)).await? {
+        None => {
+            ctx.reply("could not find player by that ID").await?;
+        }
+        Some(looked_up) => {
+            display_lookup_result(ctx, looked_up).await?
+        }
     }
 
-    lookup_result(ctx, rows).await
+    Ok(())
 }
 
 #[poise::command(slash_command, prefix_command)]
