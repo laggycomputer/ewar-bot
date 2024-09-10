@@ -32,7 +32,8 @@ async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupTyp
             let player_id = row.get::<&str, PlayerID>("player_id");
             Ok(Some((
                 player_id,
-                row.get::<&str, String>("player_name").into_boxed_str(),
+                pg_conn.query_one("SELECT player_name FROM players WHERE player_id = $1;", &[&player_id]).await?
+                    .get("player_name"),
                 pg_conn.query("SELECT discord_user_id FROM player_discord WHERE player_id = $1;", &[&player_id]).await?
                     .into_iter().map(|row| (row.get::<&str, i64>("discord_user_id") as u64).into())
                     .collect_vec()
