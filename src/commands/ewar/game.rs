@@ -5,7 +5,7 @@ use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
-use crate::util::checks::is_league_moderator;
+use crate::util::checks::{has_system_account, is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
@@ -68,7 +68,7 @@ async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_p
 }
 
 /// Log a completed game with placement
-#[poise::command(prefix_command, slash_command)]
+#[poise::command(prefix_command, slash_command, check = has_system_account)]
 pub(crate) async fn postgame(
     ctx: Context<'_>,
     #[description = "Time given for the game before overtime"] game_time: String,
@@ -114,15 +114,8 @@ pub(crate) async fn postgame(
 
     // part 1: validate proposed game
     let pg_conn = ctx.data().postgres.get().await?;
-    let poster_info = match try_lookup_user(&pg_conn, UserLookupType::DiscordID(ctx.author().id.get())).await? {
-        None => {
-            ctx.send(CreateReply::default()
-                .content(":x: do you have an account on the system?")
-                .ephemeral(true)).await?;
-            return Ok(());
-        }
-        Some(user) => user
-    };
+    let poster_info = try_lookup_user(&pg_conn, UserLookupType::DiscordID(ctx.author().id.get())).await?
+        .expect("user disappeared after check");
 
     let poster_not_moderator = !is_league_moderator(ctx).await?;
     if poster_not_moderator && placement_discord.iter().all(|u| u != ctx.author()) {
@@ -296,7 +289,7 @@ pub(crate) async fn postgame(
 }
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(slash_command, prefix_command, check = is_league_moderator)]
+#[poise::command(slash_command, prefix_command, check = has_system_account, check = is_league_moderator)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
