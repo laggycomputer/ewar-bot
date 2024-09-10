@@ -8,7 +8,7 @@ fn get_null_string() -> String{
     String::from("NULL")
 }
 
-#[poise::command(slash_command, prefix_command, owners_only)]
+#[poise::command(prefix_command, slash_command, owners_only)]
 pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError> {
     let pg_conn = ctx.data().postgres.get().await?;
 

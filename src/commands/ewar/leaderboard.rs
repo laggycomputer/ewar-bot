@@ -3,7 +3,7 @@ use crate::{BotError, Context};
 use itertools::Itertools;
 
 /// see the highest rated players
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(prefix_command, slash_command)]
 pub(crate) async fn leaderboard(ctx: Context<'_>) -> Result<(), BotError> {
     let pg_conn = ctx.data().postgres.get().await?;
 

@@ -88,7 +88,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: SqlUser) -> Result<(
 }
 
 /// Look up a user in the database
-#[poise::command(slash_command, prefix_command, subcommands("user", "name", "id"))]
+#[poise::command(prefix_command, slash_command, subcommands("user", "name", "id"))]
 pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.reply("base command is noop, try a subcommand").await?;
 
@@ -96,7 +96,7 @@ pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
 }
 
 /// defaults to you; look up a player by discord user
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(prefix_command, slash_command)]
 async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
     let user = user.as_ref().unwrap_or(ctx.author());
 
@@ -113,7 +113,7 @@ async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] use
 }
 
 /// look up a player by handle
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(prefix_command, slash_command)]
 async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
     match try_lookup_user(&ctx.data().postgres.get().await?, UserLookupType::SystemHandle(handle.as_str())).await? {
         None => {
@@ -128,7 +128,7 @@ async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] ha
 }
 
 /// look up a player by database ID
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(prefix_command, slash_command)]
 async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: PlayerID) -> Result<(), BotError> {
     match try_lookup_user(&ctx.data().postgres.get().await?, UserLookupType::SystemID(id)).await? {
         None => {
@@ -142,7 +142,7 @@ async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: Play
     Ok(())
 }
 
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(prefix_command, slash_command)]
 pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your Discord username - name you want upon registration"] desired_name: Option<String>) -> Result<(), BotError> {
     let proposed_name = desired_name.unwrap_or(ctx.author().name.clone());
 

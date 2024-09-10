@@ -289,7 +289,7 @@ pub(crate) async fn postgame(
 }
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(slash_command, prefix_command, check = has_system_account, check = is_league_moderator)]
+#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
