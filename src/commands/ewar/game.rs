@@ -5,7 +5,7 @@ use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
-use crate::util::checks::league_moderators;
+use crate::util::checks::is_league_moderator;
 use crate::util::rating::advance_approve_pointer;
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
@@ -124,7 +124,7 @@ pub(crate) async fn postgame(
         Some(user) => user
     };
 
-    let poster_not_moderator = !league_moderators(ctx).await?;
+    let poster_not_moderator = !is_league_moderator(ctx).await?;
     if poster_not_moderator && placement_discord.iter().all(|u| u != ctx.author()) {
         ctx.reply(":x: you must be a party to a game to log it").await?;
         return Ok(());
@@ -296,7 +296,7 @@ pub(crate) async fn postgame(
 }
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(slash_command, prefix_command, check = league_moderators)]
+#[poise::command(slash_command, prefix_command, check = is_league_moderator)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
