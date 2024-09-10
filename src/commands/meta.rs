@@ -32,7 +32,10 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
             let commit_id = commit.id;
             let found = repo.find_commit(commit_id)?;
             let decoded = found.decode()?;
-            ret.push((commit_id.to_hex().to_string(), decoded.message().title.to_string(), decoded.author.time.seconds));
+            ret.push((
+                commit_id.to_hex().to_string().into_boxed_str(),
+                decoded.message().title.to_string().into_boxed_str(),
+                decoded.author.time.seconds));
         }
 
         ret
@@ -47,7 +50,7 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
                 .map(|(hash, message, ts)| {
                     let message = String::from(message.trim());
 
-                    format!("`{}` {} ({})", &hash[..6], remove_markdown(message), time_formatter.convert_chrono(
+                    format!("`{}` {} ({})", &hash[..6], remove_markdown(&*message), time_formatter.convert_chrono(
                         chrono::DateTime::from_timestamp(ts, 0).unwrap(), Utc::now()
                     ))
                 })

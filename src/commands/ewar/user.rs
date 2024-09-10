@@ -53,7 +53,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: (PlayerID, Box<str>,
     ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
             .field("user", format!("{} (ID {})",
-                                   remove_markdown(String::from(system_handle)),
+                                   remove_markdown(&*system_handle),
                                    system_id), true)
             .field("rating stuff", "todo", true)
             .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
@@ -129,7 +129,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         Some(row) => {
             ctx.reply(format!(
                 "cannot bind your discord to a second user (currently bound to user {}, ID {})",
-                remove_markdown(row.get::<&str, String>("player_name")),
+                remove_markdown(row.get("player_name")),
                 row.get::<&str, i32>("player_id")
             )).await?;
         }
@@ -166,7 +166,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
             ).await?;
             trans.commit().await?;
 
-            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(proposed_name), new_id)).await?;
+            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(&*proposed_name), new_id)).await?;
         }
     };
 
