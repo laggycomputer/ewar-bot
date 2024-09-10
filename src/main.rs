@@ -74,7 +74,6 @@ async fn main() {
                 mention_as_prefix: true,
                 ..Default::default()
             },
-            initialize_owners: true,
             skip_checks_for_owners: true,
             ..Default::default()
         })
