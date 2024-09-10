@@ -1,12 +1,12 @@
-use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, Penalty};
+use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty};
 use crate::util::rating::{game_affect_ratings, RatingExtra};
 use crate::{BotError, BotVars};
 use bson::doc;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use serenity::all::UserId;
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
-use serenity::all::UserId;
 use tokio_postgres::types::Type;
 
 pub(crate) type EventNumber = u32;
@@ -50,6 +50,7 @@ pub(crate) enum StandingEventInner {
     GameEnd { game_id: GameID },
     SetStanding { victims: Vec<PlayerID>, new_rating: Option<f64>, new_deviation: Option<f64>, reason: String },
     ChangeStanding { victims: Vec<PlayerID>, delta_rating: Option<f64>, delta_deviation: Option<f64>, reason: String },
+    JoinLeague { victims: Vec<PlayerID>, initial_rating: f64, initial_deviation: f64 },
 }
 
 impl StandingEventInner {
@@ -104,12 +105,18 @@ impl StandingEventInner {
             }
             ChangeStanding { victims, delta_rating, delta_deviation, .. } => {
                 if let Some(delta_rating) = delta_rating {
-                    pg_trans.execute("UPDATE players SET rating = rating + $1 WHERE player_id = ANY($2);", &[delta_rating, &victims]).await?;
+                    pg_trans.execute("UPDATE players SET rating = rating + $1 WHERE player_id = ANY($2);",
+                                     &[delta_rating, &victims]).await?;
                 }
 
                 if let Some(delta_deviation) = delta_deviation {
-                    pg_trans.execute("UPDATE players SET deviation = deviation + $1 WHERE player_id = ANY($2);", &[delta_deviation, &victims]).await?;
+                    pg_trans.execute("UPDATE players SET deviation = deviation + $1 WHERE player_id = ANY($2);",
+                                     &[delta_deviation, &victims]).await?;
                 }
+            }
+            JoinLeague { victims, initial_rating, initial_deviation } => {
+                pg_trans.execute("UPDATE players SET rating = $1, deviation = $2 WHERE player_id = ANY($2);",
+                                 &[initial_rating, initial_deviation, victims]).await?;
             }
             _ => return Err("don't know how to handle this event type yet".into())
         }
