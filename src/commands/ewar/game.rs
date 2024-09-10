@@ -238,6 +238,8 @@ pub(crate) async fn postgame(
                 .components(signoff_components)).await?;
     }
 
+    // part 4: log it
+
     // increment, but the previous value is what we'll use
     // big idea is to prevent someone else from messing with us, so reserve then use
     let LeagueInfo { available_game_id, available_event_number, .. } = ctx.data().mongo
@@ -274,7 +276,7 @@ pub(crate) async fn postgame(
 
     ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
 
-    // part 4: moderator must sign
+    // part 5: moderator must sign later
     ctx.send(CreateReply::default().content(
         if poster_not_moderator {
             format!(
@@ -282,6 +284,7 @@ pub(crate) async fn postgame(
             **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
             )
         } else {
+            // if poster was a moderator, it has already been approved
             format!("ok, game with ID {available_game_id} recorded as event {available_event_number} bypassing player signoff")
         })).await?;
 
@@ -289,7 +292,8 @@ pub(crate) async fn postgame(
 }
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator)]
+#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator
+)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
