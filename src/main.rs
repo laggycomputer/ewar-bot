@@ -68,6 +68,7 @@ async fn main() {
                 ewar::game::postgame(),
                 ewar::game::review(),
                 ewar::game::whatif_game(),
+                ewar::leaderboard::leaderboard(),
             ],
             prefix_options: PrefixFrameworkOptions {
                 mention_as_prefix: true,
