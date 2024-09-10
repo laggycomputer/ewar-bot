@@ -8,6 +8,7 @@ use poise::CreateReply;
 use regex::RegexBuilder;
 use serenity::all::{Mentionable, User, UserId};
 use skillratings::trueskill::TrueSkillRating;
+use timeago::TimeUnit::Minutes;
 
 enum UserLookupType<'a> {
     DiscordID(u64),
@@ -57,13 +58,30 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: SqlUser) -> Result<(
         assoc_accounts = String::from("<none>")
     }
 
+    let mut time_formatter = timeago::Formatter::new();
+    time_formatter
+        .num_items(2)
+        .min_unit(Minutes);
+
+    let rating = looked_up.rating;
+
     ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
             .field("user",
                    format!("{} (ID {})",
                            remove_markdown(&*looked_up.handle),
                            looked_up.player_id), true)
-            .field("rating stuff", "todo", true)
+            .field("rating stuff", format!(
+                "{} (true rating {:.2}, deviation {:.2}){}",
+                rating.format_rating(),
+                rating.rating,
+                rating.uncertainty,
+                if rating.is_provisional() { "; __this rating is provisional until deviation falls under 2.5__" } else { "" }
+            ), true)
+            .field("last played", looked_up.last_played
+                .map(|dt| format!("{} ({})", dt.format("%_d %b %_Y"), time_formatter.convert_chrono(dt, Utc::now())))
+                .unwrap_or("never".to_string()),
+                   true)
             .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
 
     Ok(())
