@@ -6,11 +6,13 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
+use serenity::all::UserId;
 use tokio_postgres::types::Type;
 
 pub(crate) type EventNumber = u32;
 pub(crate) type GameID = i64;
 pub(crate) type PlayerID = i32;
+pub(crate) type DateTimeType = chrono::DateTime<Utc>;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeagueInfo {
@@ -33,7 +35,7 @@ pub(crate) struct Game {
     // seconds long
     pub(crate) length: u32,
     // time submitted to system
-    pub(crate) when: chrono::DateTime<Utc>,
+    pub(crate) when: DateTimeType,
     pub(crate) event_number: EventNumber,
 }
 
@@ -92,7 +94,7 @@ impl StandingEventInner {
                 let mut old_ratings = Vec::with_capacity(game.participants.len());
                 for party_id in game.participants.iter() {
                     let row = pg_trans.query_one(&prepared_select, &[party_id]).await?;
-                    old_ratings.push(TrueSkillRating::from_row(row));
+                    old_ratings.push(TrueSkillRating::from_row(&row));
                 }
 
                 let new_ratings = game_affect_ratings(&old_ratings);
@@ -121,7 +123,7 @@ pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) inner: StandingEventInner,
-    pub(crate) when: chrono::DateTime<Utc>,
+    pub(crate) when: DateTimeType,
 }
 
 // precompute rating at certain points in the timeline
@@ -129,4 +131,12 @@ struct Checkpoint {
     after: EventNumber,
     // standings changed since last checkpoint
     updates: HashMap<PlayerID, TrueSkillRating>,
+}
+
+pub(crate) struct SqlUser {
+    pub(crate) player_id: PlayerID,
+    pub(crate) handle: Box<str>,
+    pub(crate) discord_ids: Vec<UserId>,
+    pub(crate) rating: TrueSkillRating,
+    pub(crate) last_played: Option<DateTimeType>,
 }

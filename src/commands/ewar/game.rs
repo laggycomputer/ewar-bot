@@ -55,7 +55,7 @@ async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_p
                 placement_system_users.push((
                     row.get("player_name"),
                     row.get("player_id"),
-                    TrueSkillRating::from_row(row),
+                    TrueSkillRating::from_row(&row),
                 ));
             }
         }

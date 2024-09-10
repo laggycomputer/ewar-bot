@@ -1,10 +1,13 @@
-use crate::model::PlayerID;
+use crate::model::{PlayerID, SqlUser};
+use crate::util::rating::RatingExtra;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
+use chrono::{NaiveDateTime, Utc};
 use itertools::Itertools;
 use poise::CreateReply;
 use regex::RegexBuilder;
 use serenity::all::{Mentionable, User, UserId};
+use skillratings::trueskill::TrueSkillRating;
 
 enum UserLookupType<'a> {
     DiscordID(u64),
@@ -13,7 +16,7 @@ enum UserLookupType<'a> {
 }
 
 async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupType<'_>)
-                         -> Result<Option<(PlayerID, Box<str>, Vec<UserId>)>, BotError> {
+                         -> Result<Option<SqlUser>, BotError> {
     match match how {
         // try to get a row
         UserLookupType::DiscordID(id) => pg_conn.query_opt(
@@ -30,32 +33,36 @@ async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupTyp
         None => Ok(None),
         Some(row) => {
             let player_id = row.get::<&str, PlayerID>("player_id");
-            Ok(Some((
+            let more_data = pg_conn.query_one("SELECT player_name, rating, deviation, last_played \
+            FROM players WHERE player_id = $1;", &[&player_id]).await?;
+
+            Ok(Some(SqlUser {
                 player_id,
-                pg_conn.query_one("SELECT player_name FROM players WHERE player_id = $1;", &[&player_id]).await?
-                    .get("player_name"),
-                pg_conn.query("SELECT discord_user_id FROM player_discord WHERE player_id = $1;", &[&player_id]).await?
+                handle: Box::from(more_data.get::<&str, &str>("player_name")),
+                discord_ids: pg_conn.query("SELECT discord_user_id FROM player_discord WHERE player_id = $1;", &[&player_id]).await?
                     .into_iter().map(|row| (row.get::<&str, i64>("discord_user_id") as u64).into())
-                    .collect_vec()
-            )))
+                    .collect_vec(),
+                rating: TrueSkillRating::from_row(&more_data),
+                last_played: more_data.get::<&str, Option<NaiveDateTime>>("last_played")
+                    .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, Utc)),
+            }))
         }
     }
 }
 
 /// shared postlude to every lookup method; just show the user
-async fn display_lookup_result(ctx: Context<'_>, looked_up: (PlayerID, Box<str>, Vec<UserId>)) -> Result<(), BotError> {
-    let (system_id, system_handle, discord_ids) = looked_up;
-
-    let mut assoc_accounts = discord_ids.iter().map(UserId::mention).join(", ");
+async fn display_lookup_result(ctx: Context<'_>, looked_up: SqlUser) -> Result<(), BotError> {
+    let mut assoc_accounts = looked_up.discord_ids.iter().map(UserId::mention).join(", ");
     if assoc_accounts.is_empty() {
         assoc_accounts = String::from("<none>")
     }
 
     ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
-            .field("user", format!("{} (ID {})",
-                                   remove_markdown(&*system_handle),
-                                   system_id), true)
+            .field("user",
+                   format!("{} (ID {})",
+                           remove_markdown(&*looked_up.handle),
+                           looked_up.player_id), true)
             .field("rating stuff", "todo", true)
             .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
 

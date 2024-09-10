@@ -7,14 +7,14 @@ use skillratings::trueskill::{trueskill_multi_team, TrueSkillConfig, TrueSkillRa
 use skillratings::MultiTeamOutcome;
 
 pub(crate) trait RatingExtra {
-    fn from_row(row: tokio_postgres::Row) -> Self;
+    fn from_row(row: &tokio_postgres::Row) -> Self;
     fn is_provisional(&self) -> bool;
     fn leaderboard_rating(&self) -> f64;
     fn format_rating(&self) -> String;
 }
 
 impl RatingExtra for TrueSkillRating {
-    fn from_row(row: tokio_postgres::Row) -> Self {
+    fn from_row(row: &tokio_postgres::Row) -> Self {
         Self::from((row.get("rating"), row.get("deviation")))
     }
 
