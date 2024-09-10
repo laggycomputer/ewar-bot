@@ -133,10 +133,13 @@ pub(crate) async fn postgame(
 
     // part 2: submitter must confirm
     let emb_desc = format!(
-        "you are logging a game with the following result:\n{}\n",
+        "you are logging a game with the following result:\n{}\n{}",
         placement_discord.iter().zip(placement_system_users.iter()).enumerate()
             .map(|(index, (discord_user, (handle, id, _)))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
-            .join("\n"));
+            .join("\n"),
+        if poster_not_moderator {
+            "\n**as a moderator, your confirmation will submit and approve the game immediately**"
+        } else { "" });
 
     let initial_confirm_button = CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")));
     let reply = CreateReply::default()
@@ -292,7 +295,8 @@ pub(crate) async fn postgame(
 }
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator)]
+#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator
+)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
