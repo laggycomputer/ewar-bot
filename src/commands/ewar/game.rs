@@ -1,4 +1,7 @@
+use crate::commands::ewar::user::try_lookup_user;
 use crate::ewar::game::BadPlacementType::*;
+use crate::ewar::user::UserLookupType;
+use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
@@ -110,12 +113,23 @@ pub(crate) async fn postgame(
     ].into_iter().filter_map(identity).collect_vec();
 
     // part 1: validate proposed game
-    if placement_discord.iter().all(|u| u != ctx.author()) {
+    let pg_conn = ctx.data().postgres.get().await?;
+    let poster_info = match try_lookup_user(&pg_conn, UserLookupType::DiscordID(ctx.author().id.get())).await? {
+        None => {
+            ctx.send(CreateReply::default()
+                .content(":x: do you have an account on the system?")
+                .ephemeral(true)).await?;
+            return Ok(());
+        }
+        Some(user) => user
+    };
+
+    let poster_not_moderator = !league_moderators(ctx).await?;
+    if poster_not_moderator && placement_discord.iter().all(|u| u != ctx.author()) {
         ctx.reply(":x: you must be a party to a game to log it").await?;
         return Ok(());
     }
 
-    let pg_conn = ctx.data().postgres.get().await?;
     let placement_system_users = match placement_discord_to_system(&placement_discord, &pg_conn).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
@@ -143,7 +157,7 @@ pub(crate) async fn postgame(
     let waited = msg.into_message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
         .custom_ids(vec![String::from("postgame_confirm_initial")])
-        .timeout(std::time::Duration::from_secs(10)).await;
+        .timeout(Duration::from_secs(10)).await;
 
     if waited.is_none() {
         return Ok(());
@@ -161,65 +175,74 @@ pub(crate) async fn postgame(
     )).await?;
 
     // part 3: parties to game must sign
-    let make_signoff_msg = |not_signed_off: &HashSet<User>, disable_button: bool| (
-        format!(
-            "please sign off on this game with :white_check_mark:\n\
+    // moderators can skip this
+    if poster_not_moderator {
+        let make_signoff_msg = |not_signed_off: &HashSet<User>, disable_button: bool| (
+            format!(
+                "please sign off on this game with :white_check_mark:\n\
             simple majority is required to submit game\n\
             {}\n\
             \n\
             ~~struck through~~ players have already signed\n\
             **after 5 minutes of inactivity, game is rejected for submission**",
-            placement_discord.iter().map(|user| {
-                if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
-            }).join("\n")),
-        vec![
-            CreateActionRow::Buttons(vec![
-                CreateButton::new("postgame_party_sign")
-                    .emoji(ReactionType::Unicode(String::from("✅")))
-                    .disabled(disable_button)])]);
+                placement_discord.iter().map(|user| {
+                    if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
+                }).join("\n")),
+            vec![
+                CreateActionRow::Buttons(vec![
+                    CreateButton::new("postgame_party_sign")
+                        .emoji(ReactionType::Unicode(String::from("✅")))
+                        .disabled(disable_button)])]);
 
-    let (signoff_content, signoff_components) = make_signoff_msg(&not_signed_off, false);
-    let mut party_sign_stage_msg = ctx.send(CreateReply::default()
-        .content(signoff_content)
-        .components(signoff_components)).await?
-        .into_message().await?;
+        let (signoff_content, signoff_components) = make_signoff_msg(&not_signed_off, false);
+        let mut party_sign_stage_msg = ctx.send(CreateReply::default()
+            .content(signoff_content)
+            .components(signoff_components)).await?
+            .into_message().await?;
 
-    while not_signed_off.len() >= ((placement_discord.len() / 2) as f32).ceil() as usize {
-        let not_signed_off_freeze = not_signed_off.clone();
-        match party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
-            .filter(move |ixn| {
-                not_signed_off_freeze.contains(&ixn.user)
-            })
-            .timeout(Duration::from_secs(5 * 60))
-            .await {
-            None => {
-                let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
+        while not_signed_off.len() >= ((placement_discord.len() / 2) as f32).ceil() as usize {
+            let not_signed_off_freeze = not_signed_off.clone();
+            match party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
+                .filter(move |ixn| {
+                    not_signed_off_freeze.contains(&ixn.user)
+                })
+                .timeout(Duration::from_secs(5 * 60))
+                .await {
+                None => {
+                    let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
 
-                party_sign_stage_msg.edit(
-                    ctx.http(),
-                    EditMessage::new()
-                        .components(signoff_components)).await?;
+                    party_sign_stage_msg.edit(
+                        ctx.http(),
+                        EditMessage::new()
+                            .components(signoff_components)).await?;
 
-                party_sign_stage_msg.reply(ctx.http(), "timed out, this game is voided for submission").await?;
+                    party_sign_stage_msg.reply(ctx.http(), "timed out, this game is voided for submission").await?;
 
-                return Ok(());
-            }
-            Some(ixn) => {
-                ixn.create_response(ctx.http(), CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
-                    .content("ok, signed off on this game")
-                    .ephemeral(true))).await?;
+                    return Ok(());
+                }
+                Some(ixn) => {
+                    ixn.create_response(ctx.http(), CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                        .content("ok, signed off on this game")
+                        .ephemeral(true))).await?;
 
-                not_signed_off.remove(&ixn.user);
+                    not_signed_off.remove(&ixn.user);
 
-                let (signoff_content, signoff_components) = make_signoff_msg(&not_signed_off, false);
-                party_sign_stage_msg.edit(
-                    ctx.http(),
-                    EditMessage::new()
-                        .content(signoff_content)
-                        .components(signoff_components))
-                    .await?;
+                    let (signoff_content, signoff_components) = make_signoff_msg(&not_signed_off, false);
+                    party_sign_stage_msg.edit(
+                        ctx.http(),
+                        EditMessage::new()
+                            .content(signoff_content)
+                            .components(signoff_components))
+                        .await?;
+                }
             }
         }
+
+        let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
+        party_sign_stage_msg.edit(
+            ctx.http(),
+            EditMessage::new()
+                .components(signoff_components)).await?;
     }
 
     // increment, but the previous value is what we'll use
@@ -246,25 +269,28 @@ pub(crate) async fn postgame(
 
     let event = StandingEvent {
         _id: available_event_number,
-        approval_status: None,
+        approval_status: if poster_not_moderator { None } else {
+            Some(ApprovalStatus {
+                approved: true,
+                reviewer: poster_info.player_id,
+            })
+        },
         inner: GameEnd { game_id: available_game_id },
         when: submitted_time,
     };
 
     ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
 
-    let (_, signoff_components) = make_signoff_msg(&not_signed_off, true);
-    party_sign_stage_msg.edit(
-        ctx.http(),
-        EditMessage::new()
-            .components(signoff_components)).await?;
-
     // part 4: moderator must sign
-    ctx.send(CreateReply::default().content(format!(
-        "ok, game with ID {available_game_id} submitted for moderator verification\n\
-        **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
-    )))
-        .await?;
+    ctx.send(CreateReply::default().content(
+        if !poster_not_moderator {
+            format!(
+                "ok, game with ID {available_game_id} submitted for moderator verification\n\
+            **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
+            )
+        } else {
+            format!("ok, game with ID {available_game_id} recorded as event {available_event_number} bypassing player signoff")
+        })).await?;
 
     Ok(())
 }

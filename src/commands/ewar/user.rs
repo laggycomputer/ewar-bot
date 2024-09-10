@@ -10,13 +10,13 @@ use serenity::all::{Mentionable, User, UserId};
 use skillratings::trueskill::TrueSkillRating;
 use timeago::TimeUnit::Minutes;
 
-enum UserLookupType<'a> {
+pub(crate) enum UserLookupType<'a> {
     DiscordID(u64),
     SystemHandle(&'a str),
     SystemID(PlayerID),
 }
 
-async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupType<'_>)
+pub(crate) async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupType<'_>)
                          -> Result<Option<SqlUser>, BotError> {
     match match how {
         // try to get a row
