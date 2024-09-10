@@ -281,7 +281,7 @@ pub(crate) async fn postgame(
         if poster_not_moderator {
             format!(
                 "ok, game with ID {available_game_id} submitted for moderator verification\n\
-            **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
+                **any moderator, please approve or reject this game with `/review {available_game_id}`.**",
             )
         } else {
             // if poster was a moderator, it has already been approved
@@ -292,8 +292,7 @@ pub(crate) async fn postgame(
 }
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator
-)]
+#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
