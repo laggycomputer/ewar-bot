@@ -24,7 +24,8 @@ pub(crate) struct LeagueInfo {
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ApprovalStatus {
     pub(crate) approved: bool,
-    pub(crate) reviewer: PlayerID,
+    // no ID is a system job
+    pub(crate) reviewer: Option<PlayerID>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -269,7 +269,7 @@ pub(crate) async fn postgame(
         approval_status: if poster_not_moderator { None } else {
             Some(ApprovalStatus {
                 approved: true,
-                reviewer: poster_info.player_id,
+                reviewer: Some(poster_info.player_id),
             })
         },
         inner: GameEnd(signed_game),
@@ -343,7 +343,7 @@ pub(crate) async fn review(
                 doc! { "_id": corresponding_event._id },
                 doc! { "$set": doc! { "approval_status": doc! {
                     "approved": approved,
-                    "reviewer": reviewer_id,
+                    "reviewer": Some(reviewer_id),
                 } } })
                 .await?
                 .expect("standing event magically disappeared")
