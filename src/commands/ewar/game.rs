@@ -373,7 +373,7 @@ pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"]
 
     let event = match ctx.data().mongo
         .collection::<StandingEvent>("events")
-        .find_one(doc! { "inner.GameEnd.game_id" : game_id}).await? {
+        .find_one(doc! { "inner.GameEnd.game_id": game_id }).await? {
         None => {
             ctx.reply("can't find that game").await?;
             return Ok(());
