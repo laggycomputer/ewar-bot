@@ -17,7 +17,7 @@ pub(crate) async fn review(
     #[description = "ID of game to approve"] game_id: GameID,
     #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
     let corresponding_event = match ctx.data().mongo.collection::<StandingEvent>("events").find_one(
-        doc! { "inner": doc! { "GameEnd": doc! { "game_id": game_id } } }).await? {
+        doc! { "inner.GameEnd.game_id": game_id }).await? {
         None => {
             ctx.send(CreateReply::default()
                 .content(":x: that game DNE")
