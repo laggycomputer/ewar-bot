@@ -69,7 +69,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<EventNumbe
     let mut first_unreviewed_event_number_num = league_info.first_unreviewed_event_number;
 
     let mut allegedly_unreviewed = data.mongo.collection::<StandingEvent>("events")
-        .find(doc! { "_id": doc! {"$gt": first_unreviewed_event_number_num } })
+        .find(doc! { "_id": doc! {"$gte": first_unreviewed_event_number_num } })
         .sort(doc! { "_id": 1 }).await?;
 
     while let Some(standing_event) = allegedly_unreviewed.next().await {
