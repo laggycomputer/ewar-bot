@@ -104,14 +104,9 @@ pub(crate) async fn advance_pointer(
     let new_stopped_before = advance_approve_pointer(&ctx.data(), stop_before).await?;
 
     ctx.reply(match stopped_before == new_stopped_before {
-        true => {
-            format!("ok, stopped at event number {} (no change)", stopped_before)
-        }
-        false => {
-            format!("ok, previously was stopped before event number {}, now stopped before event number {}",
-                    stopped_before,
-                    new_stopped_before)
-        }
+        true => format!("ok, stopped at event number {} (no change)", stopped_before),
+        false => format!("ok, previously was stopped before event number {stopped_before}, \
+        now stopped before event number {new_stopped_before}")
     }).await?;
 
     Ok(())

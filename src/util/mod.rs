@@ -4,7 +4,7 @@ pub(crate) mod constants;
 
 use crate::commands::ewar::user::try_lookup_user;
 use crate::commands::ewar::user::UserLookupType::SystemID;
-use crate::model::{PlayerID, SqlUser, StandingEvent, StandingEventInner};
+use crate::model::{ApprovalStatus, PlayerID, SqlUser, StandingEvent, StandingEventInner};
 use crate::{BotError, Context};
 use chrono::Utc;
 use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};
@@ -15,9 +15,7 @@ use timeago::TimeUnit::Seconds;
 
 pub(crate) fn bot_invite_url(id: UserId, permissions: Permissions, with_slash_commands: bool) -> String {
     let perms_section = permissions.bits().to_string();
-    format!("https://discord.com/oauth2/authorize?client_id={}&permissions={}&integration_type=0&scope=bot{}",
-            id,
-            perms_section,
+    format!("https://discord.com/oauth2/authorize?client_id={id}&permissions={perms_section}&integration_type=0&scope=bot{}",
             if with_slash_commands { "+applications.commands" } else { "" })
 }
 
@@ -35,7 +33,7 @@ pub(crate) fn base_embed(ctx: Context<'_>) -> CreateEmbed {
 }
 
 pub(crate) fn short_user_reference(handle: &str, id: PlayerID) -> Box<str> {
-    format!("{}, ID {}", remove_markdown(handle), id).to_owned().into_boxed_str()
+    format!("{}, ID {id}", remove_markdown(handle)).to_owned().into_boxed_str()
 }
 
 impl SqlUser {
@@ -82,5 +80,20 @@ impl StandingEvent {
             }
             _ => Ok(Box::from("don't know how to summarize this event type"))
         }
+    }
+}
+
+impl ApprovalStatus {
+    pub(crate) async fn short_summary(&self, pg_conn: &deadpool_postgres::Object) -> Result<Box<str>, BotError> {
+        Ok(format!("{} by {}", match self.approved {
+            true => "approved",
+            false => "rejected"
+        }, match self.reviewer {
+            Some(reviewer_id) => try_lookup_user(pg_conn, SystemID(reviewer_id))
+                .await?
+                .expect("reviewer's ID not valid")
+                .short_summary(),
+            None => "<system>".into()
+        }).into_boxed_str())
     }
 }
