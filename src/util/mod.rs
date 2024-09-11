@@ -29,6 +29,6 @@ pub(crate) fn base_embed(ctx: Context<'_>) -> CreateEmbed {
             User::from(ctx.serenity_context().cache.current_user().clone())))
 }
 
-pub(crate) fn short_user_reference(handle: &str, id: PlayerID) -> String {
-    format!("{}, ID {}", remove_markdown(handle), id)
+pub(crate) fn short_user_reference(handle: &str, id: PlayerID) -> Box<str> {
+    format!("{}, ID {}", remove_markdown(handle), id).to_owned().into_boxed_str()
 }
