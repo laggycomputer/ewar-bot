@@ -5,7 +5,7 @@ use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
-use crate::util::checks::{has_system_account, is_league_moderator};
+use crate::util::checks::{has_system_account, is_league_moderator, _is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
@@ -117,7 +117,7 @@ pub(crate) async fn postgame(
     let poster_info = try_lookup_user(&pg_conn, UserLookupType::DiscordID(ctx.author().id.get())).await?
         .expect("user disappeared after check");
 
-    let poster_not_moderator = !is_league_moderator(ctx).await?;
+    let poster_not_moderator = !_is_league_moderator(ctx).await?;
     if poster_not_moderator && placement_discord.iter().all(|u| u != ctx.author()) {
         ctx.reply(":x: you must be a party to a game to log it").await?;
         return Ok(());
@@ -150,12 +150,15 @@ pub(crate) async fn postgame(
                 initial_confirm_button.clone()])]);
     let msg = ctx.send(reply.clone()).await?;
 
-    let waited = msg.into_message().await?.await_component_interaction(&ctx.serenity_context().shard)
+    let waited = msg.message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
         .custom_ids(vec![String::from("postgame_confirm_initial")])
         .timeout(Duration::from_secs(10)).await;
 
     if waited.is_none() {
+        msg_part2.edit(ctx, CreateReply::default()
+            .components(vec![])).await?;
+        ctx.reply("timed out, submission of this game cancelled").await?;
         return Ok(());
     }
 

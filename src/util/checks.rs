@@ -2,8 +2,12 @@ use crate::commands::ewar::user::{try_lookup_user, UserLookupType};
 use crate::{BotError, Context};
 use poise::CreateReply;
 
+pub(crate) async fn _is_league_moderator(ctx: Context<'_>) -> Result<bool, BotError> {
+    Ok(ctx.author().id.get() == 328678556899213322)
+}
+
 pub(crate) async fn is_league_moderator(ctx: Context<'_>) -> Result<bool, BotError> {
-    let cond = ctx.author().id.get() == 328678556899213322;
+    let cond = _is_league_moderator(ctx).await?;
 
     if !cond {
         ctx.send(CreateReply::default()
