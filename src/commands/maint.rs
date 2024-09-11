@@ -1,7 +1,12 @@
+use crate::model::StandingEvent;
 use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
+use bson::{doc, Bson, Document};
+use futures::TryStreamExt;
 use itertools::Itertools;
 use prettytable::{format, Row, Table};
+use serde::de::DeserializeOwned;
+use std::error::Error;
 use tokio::time::Instant;
 use tokio_postgres::types::Type;
 
@@ -69,5 +74,40 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
 pub(crate) async fn advance_pointer(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.reply(format!("ok, applied to and including event number {}", advance_approve_pointer(&ctx.data()).await?)).await?;
 
+    Ok(())
+}
+
+fn try_make<T>(doc: Document) -> Result<T, Box<dyn Error>>
+where
+    T: DeserializeOwned,
+{
+    let parsed: T = bson::from_document(doc)?;
+    Ok(parsed)
+}
+
+/// check integrity of event log
+#[poise::command(prefix_command, slash_command, owners_only)]
+pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.defer().await?;
+
+    let mut had_err = false;
+
+    let mut events = ctx.data().mongo.collection::<Document>("events").find(doc! {}).await?;
+    while let Some(out) = events.try_next().await? {
+        let to_send = match try_make::<StandingEvent>(out.clone()) {
+            Ok(_) => continue,
+            Err(e) => {
+                let offender: &Bson = out.get("_id").expect("how does a mongo object not have an id");
+                format!("event {} is not okay:\n{:?}", offender.to_string(), e)
+            }
+        };
+        // we will never be here if everything is okay
+        had_err = true;
+        ctx.reply(to_send).await?;
+    }
+
+    if !had_err {
+        ctx.reply("all events look ok").await?;
+    }
     Ok(())
 }

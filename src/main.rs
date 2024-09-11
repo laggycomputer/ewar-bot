@@ -64,6 +64,7 @@ async fn main() {
                 meta::git(),
                 maint::sql(),
                 maint::advance_pointer(),
+                maint::fsck(),
                 ewar::user::lookup(),
                 ewar::user::register(),
                 ewar::game::postgame(),
