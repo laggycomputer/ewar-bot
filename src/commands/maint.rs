@@ -87,7 +87,7 @@ pub(crate) async fn advance_pointer(
 
     ctx.reply(match stopped_before == new_stopped_before {
         true => {
-            format!("ok, stopped at {} (no change)", stopped_before)
+            format!("ok, stopped at event number {} (no change)", stopped_before)
         }
         false => {
             format!("ok, previously was stopped before event number {}, now stopped before event number {}",
