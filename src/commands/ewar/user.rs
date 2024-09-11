@@ -82,7 +82,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: SqlUser) -> Result<(
                 if rating.is_provisional() { "; __this rating is provisional until deviation falls under 2.5__" } else { "" }
             ), true)
             .field("last played", looked_up.last_played
-                .map(|dt| format!("{} ({})", dt.format("%_d %b %_Y"), time_formatter.convert_chrono(dt, Utc::now())))
+                .map(|dt| format!("<t:{}:f> ({})", dt.timestamp(), time_formatter.convert_chrono(dt, Utc::now())))
                 .unwrap_or("never".to_string()),
                    true)
             .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
