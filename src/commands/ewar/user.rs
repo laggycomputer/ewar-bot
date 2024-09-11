@@ -1,7 +1,9 @@
-use crate::model::{PlayerID, SqlUser};
+use crate::model::StandingEventInner::JoinLeague;
+use crate::model::{ApprovalStatus, LeagueInfo, PlayerID, SqlUser, StandingEvent};
 use crate::util::rating::RatingExtra;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
+use bson::doc;
 use chrono::{NaiveDateTime, Utc};
 use itertools::Itertools;
 use poise::CreateReply;
@@ -17,7 +19,7 @@ pub(crate) enum UserLookupType<'a> {
 }
 
 pub(crate) async fn try_lookup_user(pg_conn: &deadpool_postgres::Object, how: UserLookupType<'_>)
-                         -> Result<Option<SqlUser>, BotError> {
+                                    -> Result<Option<SqlUser>, BotError> {
     match match how {
         // try to get a row
         UserLookupType::DiscordID(id) => pg_conn.query_opt(
@@ -144,7 +146,6 @@ async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: Play
 
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your Discord username - name you want upon registration"] desired_name: Option<String>) -> Result<(), BotError> {
-    // TODO: add league join event
     let proposed_name = desired_name.unwrap_or(ctx.author().name.clone());
 
     let mut pg_conn = ctx.data().postgres.get().await?;
@@ -159,43 +160,67 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
                 remove_markdown(row.get("player_name")),
                 row.get::<&str, i32>("player_id")
             )).await?;
+            return Ok(());
         }
-        None => {
-            if pg_conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&proposed_name.as_str()]).await?.is_some() {
-                ctx.reply(format!("user by name {proposed_name} already exists")).await?;
-                return Ok(());
-            }
-
-            let valid_pattern = RegexBuilder::new(r"^[a-z\d_.]{1,32}$")
-                .case_insensitive(true)
-                .build().unwrap();
-
-            if proposed_name.len() > 32 {
-                ctx.reply("name too long, sorry").await?;
-                return Ok(());
-            } else if !valid_pattern.is_match(&*proposed_name) {
-                ctx.reply("only alphanumeric, `_`, or `.`, sorry").await?;
-                return Ok(());
-            }
-
-            let trans = pg_conn.build_transaction()
-                .deferrable(true)
-                .start().await?;
-
-            let new_id: i32 = trans.query_one(
-                "INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;",
-                &[&proposed_name],
-            ).await?
-                .get("player_id");
-            trans.execute(
-                "INSERT INTO player_discord (player_id, discord_user_id) VALUES ($1, $2);",
-                &[&new_id, &(ctx.author().id.get() as i64)],
-            ).await?;
-            trans.commit().await?;
-
-            ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(&*proposed_name), new_id)).await?;
-        }
+        None => {}
     };
+
+    if pg_conn.query_opt("SELECT 1 FROM players WHERE player_name = $1;", &[&proposed_name.as_str()]).await?.is_some() {
+        ctx.reply(format!("user by name {proposed_name} already exists")).await?;
+        return Ok(());
+    }
+
+    let valid_pattern = RegexBuilder::new(r"^[a-z\d_.]{1,32}$")
+        .case_insensitive(true)
+        .build().unwrap();
+
+    if proposed_name.len() > 32 {
+        ctx.reply("name too long, sorry").await?;
+        return Ok(());
+    } else if !valid_pattern.is_match(&*proposed_name) {
+        ctx.reply("only alphanumeric, `_`, or `.`, sorry").await?;
+        return Ok(());
+    }
+
+    let trans = pg_conn.build_transaction()
+        .deferrable(true)
+        .start().await?;
+
+    let new_id: PlayerID = trans.query_one(
+        "INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;",
+        &[&proposed_name],
+    ).await?
+        .get("player_id");
+    trans.execute(
+        "INSERT INTO player_discord (player_id, discord_user_id) VALUES ($1, $2);",
+        &[&new_id, &(ctx.author().id.get() as i64)],
+    ).await?;
+    trans.commit().await?;
+
+    // add league join event
+    let LeagueInfo { available_event_number, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one_and_update(
+            doc! {},
+            doc! { "$inc": doc! { "available_event_number": 1, } })
+        .await?
+        .expect("league_info struct missing");
+
+    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
+        _id: available_event_number,
+        approval_status: Some(ApprovalStatus {
+            approved: true,
+            reviewer: None,
+        }),
+        inner: JoinLeague {
+            victims: vec![new_id],
+            initial_rating: 18.0,
+            initial_deviation: 9.0,
+        },
+        when: Utc::now(),
+    }).await?;
+
+    ctx.reply(format!("welcome new user {}, ID {}", remove_markdown(&*proposed_name), new_id)).await?;
 
     Ok(())
 }
