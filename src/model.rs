@@ -111,7 +111,7 @@ impl StandingEventInner {
                 }
             }
             JoinLeague { victims, initial_rating, initial_deviation } => {
-                pg_trans.execute("UPDATE players SET rating = $1, deviation = $2 WHERE player_id = ANY($2);",
+                pg_trans.execute("UPDATE players SET rating = $1, deviation = $2 WHERE player_id = ANY($3);",
                                  &[initial_rating, initial_deviation, victims]).await?;
             }
             _ => return Err("don't know how to handle this event type yet".into())
