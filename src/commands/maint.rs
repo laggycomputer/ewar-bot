@@ -5,9 +5,12 @@ use bson::Bson::Int64;
 use bson::{doc, Bson, Document};
 use futures::TryStreamExt;
 use itertools::Itertools;
+use poise::CreateReply;
 use prettytable::{format, Row, Table};
 use serde::de::DeserializeOwned;
+use serenity::all::{CreateAttachment, Message};
 use std::error::Error;
+use std::io::BufWriter;
 use tokio::time::Instant;
 use tokio_postgres::types::Type;
 
@@ -16,7 +19,7 @@ fn get_null_string() -> String {
 }
 
 #[poise::command(prefix_command, slash_command, owners_only)]
-pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError> {
+pub(crate) async fn sql(ctx: Context<'_>, query: String, as_csv: Option<bool>) -> Result<(), BotError> {
     let pg_conn = ctx.data().postgres.get().await?;
 
     let start = Instant::now();
@@ -64,7 +67,22 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
                 ));
             });
 
-            ctx.reply(format!("ok in {}ms:```\n{table}```", elapsed.as_millis())).await?;
+            let ok_in_section = format!("ok in {}ms:", elapsed.as_millis());
+            let try_to_send = format!("{ok_in_section}```\n{table}```");
+            if Message::overflow_length(&*try_to_send).is_some() || as_csv.unwrap_or(false) {
+                ctx.send(CreateReply::default()
+                    .reply(true)
+                    .attachment(if as_csv.unwrap_or(false) {
+                        let buf = table.to_csv(BufWriter::new(Vec::new()))?;
+                        CreateAttachment::bytes(buf.into_inner()?.into_inner()?, "out.csv")
+                    } else {
+                        CreateAttachment::bytes(table.to_string(), "out.sql")
+                    })
+                    .content(ok_in_section))
+                    .await?;
+            } else {
+                ctx.reply(try_to_send).await?;
+            }
         }
     }
     Ok(())
