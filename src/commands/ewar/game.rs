@@ -361,7 +361,7 @@ pub(crate) async fn review(
             .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
     }
 
-    advance_approve_pointer(&ctx.data()).await?;
+    advance_approve_pointer(&ctx.data(), None).await?;
     Ok(())
 }
 

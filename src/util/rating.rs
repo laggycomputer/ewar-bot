@@ -1,11 +1,11 @@
 use crate::model::{EventNumber, LeagueInfo, StandingEvent};
+use crate::util::constants::TRUESKILL_CONFIG;
 use crate::{BotError, BotVars};
 use bson::doc;
 use futures::StreamExt;
 use itertools::Itertools;
 use skillratings::trueskill::{trueskill_multi_team, TrueSkillRating};
 use skillratings::MultiTeamOutcome;
-use crate::util::constants::TRUESKILL_CONFIG;
 
 pub(crate) trait RatingExtra {
     fn from_row(row: &tokio_postgres::Row) -> Self;
@@ -56,7 +56,7 @@ pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueS
 /// check for any unreviewed events (right now, these are only games) and update the record of present-day ratings in SQL.
 /// the "approve pointer" in the function name, or the first unreviewed event, is advanced until it actually points to an unreviewed event
 /// along the way, we process the results of any standing events we find
-pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<EventNumber, BotError> {
+pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<EventNumber>) -> Result<EventNumber, BotError> {
     let mutex = data.update_ratings_lock.clone();
     mutex.lock().await;
 
@@ -82,6 +82,8 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<EventNumbe
                 if approval_status.approved {
                     inner.process_effect(&pg_trans).await?;
                 }
+
+                if first_unreviewed_event_number_num == stop_before.unwrap_or(EventNumber::MAX) { break; }
             }
         }
     }
