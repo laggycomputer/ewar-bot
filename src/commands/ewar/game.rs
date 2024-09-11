@@ -150,7 +150,7 @@ pub(crate) async fn postgame(
                 initial_confirm_button.clone()])]);
     let msg_part2 = ctx.send(reply.clone()).await?;
 
-    let waited = msg.message().await?.await_component_interaction(&ctx.serenity_context().shard)
+    let waited = msg_part2.message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
         .custom_ids(vec![String::from("postgame_confirm_initial")])
         .timeout(Duration::from_secs(10)).await;
