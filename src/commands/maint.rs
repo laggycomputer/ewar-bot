@@ -99,7 +99,7 @@ pub(crate) async fn advance_pointer(
     Ok(())
 }
 
-/// move the advance pointer back to 0
+/// move the advance pointer back to 0, clear all ratings
 #[poise::command(prefix_command, slash_command, owners_only)]
 pub(crate) async fn force_reprocess(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.data().mongo
@@ -107,6 +107,9 @@ pub(crate) async fn force_reprocess(ctx: Context<'_>) -> Result<(), BotError> {
         .find_one_and_update(doc! {}, doc! { "$set": doc! {"first_unreviewed_event_number": Int64(0) } })
         .await?
         .expect("league_info struct missing");
+
+    let pg_conn = ctx.data().postgres.get().await?;
+    pg_conn.execute("UPDATE players SET rating = 0, deviation = 0;", &[]).await?;
 
     ctx.reply("ok").await?;
 
