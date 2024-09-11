@@ -7,7 +7,7 @@ use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
-use crate::util::rating::{expected_outcome, game_affect_ratings};
+use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
 use crate::util::rating::RatingExtra;
 use crate::util::short_user_reference;
 use crate::{BotError, Context};
@@ -286,6 +286,10 @@ pub(crate) async fn post(
 
     ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
 
+    if !poster_not_moderator {
+        advance_approve_pointer(&ctx.data(), None).await?;
+    }
+
     // part 5: moderator must sign later
     ctx.send(CreateReply::default().content(
         if poster_not_moderator {
@@ -295,7 +299,7 @@ pub(crate) async fn post(
             )
         } else {
             // if poster was a moderator, it has already been approved
-            format!("ok, game with ID {available_game_id} recorded as event {available_event_number} bypassing player signoff")
+            format!("ok, game with ID {available_game_id} approved as event {available_event_number} bypassing player signoff")
         })).await?;
 
     Ok(())

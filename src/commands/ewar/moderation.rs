@@ -8,6 +8,7 @@ use futures::TryStreamExt;
 use itertools::Itertools;
 use poise::CreateReply;
 use serenity::all::CreateEmbedFooter;
+use crate::util::rating::advance_approve_pointer;
 
 /// League moderators: review game for league record; approve or reject
 #[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator
@@ -77,6 +78,7 @@ pub(crate) async fn review(
             .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
     }
 
+    advance_approve_pointer(&ctx.data(), None).await?;
     Ok(())
 }
 
