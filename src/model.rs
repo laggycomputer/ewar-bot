@@ -16,14 +16,14 @@ pub(crate) struct LeagueInfo {
     pub(crate) available_event_number: EventNumber,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct ApprovalStatus {
     pub(crate) approved: bool,
     // no ID is a system job
     pub(crate) reviewer: Option<PlayerID>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub(crate) struct Game {
     pub(crate) game_id: GameID,
     // in placement order
@@ -33,7 +33,7 @@ pub(crate) struct Game {
     // time submitted to system
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[non_exhaustive]
 pub(crate) enum StandingEventInner {
     // remove rating for foul play
@@ -47,7 +47,7 @@ pub(crate) enum StandingEventInner {
     JoinLeague { victims: Vec<PlayerID>, initial_rating: f64, initial_deviation: f64 },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,

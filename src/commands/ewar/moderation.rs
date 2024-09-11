@@ -1,13 +1,18 @@
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, PlayerID, StandingEvent};
+use crate::util::base_embed;
 use crate::util::checks::{has_system_account, is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
-use bson::doc;
+use bson::{doc, Bson};
+use futures::TryStreamExt;
+use itertools::Itertools;
 use poise::CreateReply;
+use serenity::all::CreateEmbedFooter;
 
 /// League moderators: review game for league record; approve or reject
-#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator)]
+#[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator
+)]
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
@@ -74,5 +79,40 @@ pub(crate) async fn review(
     }
 
     advance_approve_pointer(&ctx.data(), None).await?;
+    Ok(())
+}
+
+
+/// League moderators: check for unreviewed games
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
+pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
+    let pg_conn = ctx.data().postgres.get().await?;
+
+    let find = ctx.data().mongo.collection::<StandingEvent>("events")
+        .find(doc! {
+            "inner.GameEnd": doc! { "$exists": true },
+            "approval_status": Bson::Null,
+        })
+        .sort(doc! { "_id": 1 })
+        .limit(10)
+        .await?;
+
+    let events: Vec<_> = find.try_collect().await?;
+    if events.is_empty() {
+        ctx.reply("no unreviewed games at this time").await?;
+        return Ok(());
+    }
+
+    let mut event_lines = Vec::with_capacity(events.len());
+    for evt in events {
+        event_lines.push(format!("#{} - {}", evt._id, evt.short_summary(&pg_conn).await?));
+    }
+
+    ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .description(event_lines.into_iter().join("\n"))
+            .footer(CreateEmbedFooter::new("only showing earliest 10 unreviewed games")))
+        .reply(true)).await?;
+
     Ok(())
 }
