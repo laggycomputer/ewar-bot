@@ -148,7 +148,7 @@ pub(crate) async fn postgame(
         .components(vec![
             CreateActionRow::Buttons(vec![
                 initial_confirm_button.clone()])]);
-    let msg = ctx.send(reply.clone()).await?;
+    let msg_part2 = ctx.send(reply.clone()).await?;
 
     let waited = msg.message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
