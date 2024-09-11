@@ -1,13 +1,13 @@
 use crate::model::{EventNumber, LeagueInfo, StandingEvent};
 use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
+use bson::Bson::Int64;
 use bson::{doc, Bson, Document};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use prettytable::{format, Row, Table};
 use serde::de::DeserializeOwned;
 use std::error::Error;
-use bson::Bson::Int64;
 use tokio::time::Instant;
 use tokio_postgres::types::Type;
 
@@ -82,9 +82,19 @@ pub(crate) async fn advance_pointer(
         .await?
         .expect("league_info struct missing");
 
-    ctx.reply(format!("ok, previously was up to event number {}, now stopped before event number {}",
-                      first_unreviewed_event_number,
-                      advance_approve_pointer(&ctx.data(), stop_before).await?)).await?;
+    let stopped_before = first_unreviewed_event_number;
+    let new_stopped_before = advance_approve_pointer(&ctx.data(), stop_before).await?;
+
+    ctx.reply(match stopped_before == new_stopped_before {
+        true => {
+            format!("ok, stopped at {} (no change)", stopped_before)
+        }
+        false => {
+            format!("ok, previously was stopped before event number {}, now stopped before event number {}",
+                    stopped_before,
+                    new_stopped_before)
+        }
+    }).await?;
 
     Ok(())
 }
