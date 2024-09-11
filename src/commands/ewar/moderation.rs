@@ -2,7 +2,6 @@ use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{has_system_account, is_league_moderator};
-use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
 use bson::{doc, Bson};
 use futures::TryStreamExt;
@@ -78,7 +77,6 @@ pub(crate) async fn review(
             .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
     }
 
-    advance_approve_pointer(&ctx.data(), None).await?;
     Ok(())
 }
 
