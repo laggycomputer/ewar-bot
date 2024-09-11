@@ -1,3 +1,4 @@
+use crate::util::checks::is_league_moderator;
 use crate::model::{EventNumber, LeagueInfo, StandingEvent};
 use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
@@ -89,7 +90,7 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String, as_csv: Option<bool>) -
 }
 
 /// attempt to advance the approve pointer (be careful)
-#[poise::command(prefix_command, slash_command, owners_only)]
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
 pub(crate) async fn advance_pointer(
     ctx: Context<'_>,
     #[description = "do not approve this event number and after"] stop_before: Option<EventNumber>,
@@ -113,7 +114,7 @@ pub(crate) async fn advance_pointer(
 }
 
 /// move the advance pointer back to 0, clear all ratings
-#[poise::command(prefix_command, slash_command, owners_only)]
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
 pub(crate) async fn force_reprocess(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.data().mongo
         .collection::<LeagueInfo>("league_info")
