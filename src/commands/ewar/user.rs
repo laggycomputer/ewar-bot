@@ -144,6 +144,7 @@ async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: Play
 
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your Discord username - name you want upon registration"] desired_name: Option<String>) -> Result<(), BotError> {
+    // TODO: add league join event
     let proposed_name = desired_name.unwrap_or(ctx.author().name.clone());
 
     let mut pg_conn = ctx.data().postgres.get().await?;
