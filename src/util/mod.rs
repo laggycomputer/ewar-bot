@@ -2,6 +2,7 @@ pub(crate) mod checks;
 pub(crate) mod rating;
 pub(crate) mod constants;
 
+use crate::model::PlayerID;
 use crate::Context;
 use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};
 use serenity::all::{CreateEmbed, CreateEmbedAuthor, Permissions};
@@ -26,4 +27,8 @@ pub(crate) fn base_embed(ctx: Context<'_>) -> CreateEmbed {
         .color(0xfcc11b)
         .author(CreateEmbedAuthor::from(
             User::from(ctx.serenity_context().cache.current_user().clone())))
+}
+
+pub(crate) fn short_user_reference(handle: &str, id: PlayerID) -> String {
+    format!("{}, ID {}", remove_markdown(handle), id)
 }

@@ -1,10 +1,11 @@
+use crate::util::short_user_reference;
 use crate::commands::ewar::user::try_lookup_user;
 use crate::ewar::game::BadPlacementType::*;
 use crate::ewar::user::UserLookupType;
 use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, LeagueInfo, PlayerID, StandingEvent};
-use crate::util::{base_embed, remove_markdown};
+use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
@@ -135,7 +136,7 @@ pub(crate) async fn postgame(
         "you are logging a game with the following result:\n{}\n{}",
         placement_discord.iter().zip(placement_system_users.iter()).enumerate()
             .map(|(index, (discord_user, (handle, id, _)))| format!(
-                "{}. {} ({}, ID {})", index + 1, discord_user.mention(), remove_markdown(handle), id)
+                "{}. {} ({})", index + 1, discord_user.mention(), short_user_reference(handle, *id))
             )
             .join("\n"),
         if !poster_not_moderator {
@@ -340,14 +341,13 @@ pub(crate) async fn whatif_game(
         rating_supply_delta += new_rating.rating - old_rating.rating;
 
         leaderboard += &*(format!(
-            "{}. {} → {} ({:+.2}): {} ({}, ID {})\n",
+            "{}. {} → {} ({:+.2}): {} ({})\n",
             index + 1,
             old_rating.format_rating(),
             new_rating.format_rating(),
             leaderboard_delta,
             placement_discord[index].mention(),
-            placement_system_users[index].0,
-            placement_system_users[index].1,
+            short_user_reference(&placement_system_users[index].0, placement_system_users[index].1),
         ))
     }
 

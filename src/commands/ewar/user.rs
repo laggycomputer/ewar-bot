@@ -2,7 +2,7 @@ use crate::model::StandingEventInner::JoinLeague;
 use crate::model::{ApprovalStatus, LeagueInfo, PlayerID, SqlUser, StandingEvent};
 use crate::util::constants::DEFAULT_RATING;
 use crate::util::rating::RatingExtra;
-use crate::util::{base_embed, remove_markdown};
+use crate::util::{base_embed, remove_markdown, short_user_reference};
 use crate::{BotError, Context};
 use bson::doc;
 use chrono::{NaiveDateTime, Utc};
@@ -157,9 +157,8 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         &[&(ctx.author().id.get() as i64)]).await? {
         Some(row) => {
             ctx.reply(format!(
-                "cannot bind your discord to a second user (currently bound to user {}, ID {})",
-                remove_markdown(row.get("player_name")),
-                row.get::<&str, i32>("player_id")
+                "cannot bind your discord to a second user (currently bound to user {})",
+                short_user_reference(row.get("player_name"), row.get::<&str, i32>("player_id"))
             )).await?;
             return Ok(());
         }
