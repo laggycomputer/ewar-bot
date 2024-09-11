@@ -1,4 +1,4 @@
-use crate::model::StandingEvent;
+use crate::model::{LeagueInfo, StandingEvent};
 use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
 use bson::{doc, Bson, Document};
@@ -72,7 +72,15 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
 /// attempt to advance the approve pointer (be careful)
 #[poise::command(prefix_command, slash_command, owners_only)]
 pub(crate) async fn advance_pointer(ctx: Context<'_>) -> Result<(), BotError> {
-    ctx.reply(format!("ok, applied to and including event number {}", advance_approve_pointer(&ctx.data()).await?)).await?;
+    let LeagueInfo { first_unreviewed_event_number, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one(doc! {})
+        .await?
+        .expect("league_info struct missing");
+
+    ctx.reply(format!("ok, previously was up to event number {}, now up to and including event number {}",
+                      first_unreviewed_event_number,
+                      advance_approve_pointer(&ctx.data()).await?)).await?;
 
     Ok(())
 }
