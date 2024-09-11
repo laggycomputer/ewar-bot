@@ -1,17 +1,18 @@
-use crate::util::short_user_reference;
 use crate::commands::ewar::user::try_lookup_user;
+use crate::commands::ewar::user::UserLookupType::SystemID;
 use crate::ewar::game::BadPlacementType::*;
 use crate::ewar::user::UserLookupType;
 use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
-use crate::model::{Game, LeagueInfo, PlayerID, StandingEvent};
+use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
+use crate::util::short_user_reference;
 use crate::{BotError, Context};
 use bson::doc;
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use itertools::Itertools;
 use poise::CreateReply;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
@@ -19,6 +20,7 @@ use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
+use timeago::TimeUnit::Seconds;
 
 enum BadPlacementType {
     DuplicateUser,
@@ -67,7 +69,7 @@ async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_p
     Ok(Ok(placement_system_users))
 }
 
-#[poise::command(prefix_command, slash_command, subcommands("post", "whatif"))]
+#[poise::command(prefix_command, slash_command, subcommands("post", "whatif", "query"))]
 pub(crate) async fn game(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.reply("base command is noop, try a subcommand").await?;
 
@@ -362,6 +364,61 @@ pub(crate) async fn whatif(
     ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
             .description(leaderboard))).await?;
+
+    Ok(())
+}
+
+/// Get a game by ID
+#[poise::command(prefix_command, slash_command)]
+pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"] game_id: GameID) -> Result<(), BotError> {
+    let pg_conn = ctx.data().postgres.get().await?;
+
+    let event = match ctx.data().mongo
+        .collection::<StandingEvent>("events")
+        .find_one(doc! { "inner.GameEnd.game_id" : game_id}).await? {
+        None => {
+            ctx.reply("can't find that game").await?;
+            return Ok(());
+        }
+        Some(event) => event
+    };
+
+    let StandingEvent { inner: GameEnd(game), .. } = event else { return Err("game-looking struct is not a game".into()) };
+
+    let mut users_info = Vec::with_capacity(game.ranking.len());
+    for player_id in game.ranking {
+        users_info.push(try_lookup_user(&pg_conn, SystemID(player_id)).await?.expect("user in game DNE"));
+    }
+
+    let mut time_formatter = timeago::Formatter::new();
+    time_formatter
+        .num_items(2)
+        .min_unit(Seconds);
+
+    let ranking = users_info.into_iter().enumerate()
+        .map(|(index, user)| format!("{}. {}", index + 1, user.short_summary()))
+        .join("\n");
+
+    let chrono_game_length = TimeDelta::from_std(Duration::from_secs(game.length as u64))?;
+
+    ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .field("id", format!("game ID {}, event ID {}", game.game_id, event._id), true)
+            .field("when", format!(
+                "<t:{}:d> ({})",
+                event.when.timestamp(),
+                time_formatter.convert_chrono(event.when, Utc::now())
+            ), true)
+            .field("reviewer", match event.approval_status {
+                None => String::from("not approved yet"),
+                Some(approval_status) => String::from(approval_status.short_summary(&pg_conn).await?),
+            }, true)
+            .field("length (pre-overtime)", format!(
+                "{:02}:{:02}", chrono_game_length.num_minutes(), chrono_game_length.num_seconds() % 60
+            ), true)
+            .description(ranking)
+        )
+        .reply(true)).await?;
 
     Ok(())
 }
