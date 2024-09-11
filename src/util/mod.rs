@@ -9,10 +9,10 @@ use serenity::all::{User, UserId};
 
 pub(crate) fn bot_invite_url(id: UserId, permissions: Permissions, with_slash_commands: bool) -> String {
     let perms_section = permissions.bits().to_string();
-    format!("https://discord.com/oauth2/authorize?client_id={}{}&scope=bot{}",
+    format!("https://discord.com/oauth2/authorize?client_id={}&permissions={}&integration_type=0&scope=bot{}",
             id,
             perms_section,
-            if with_slash_commands { "%20applications.commands" } else { "" })
+            if with_slash_commands { "+applications.commands" } else { "" })
 }
 
 pub(crate) fn remove_markdown(input: &str) -> String {
