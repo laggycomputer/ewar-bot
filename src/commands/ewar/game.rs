@@ -67,9 +67,15 @@ async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_p
     Ok(Ok(placement_system_users))
 }
 
+#[poise::command(prefix_command, slash_command, subcommands("post", "whatif"))]
+pub(crate) async fn game(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.reply("base command is noop, try a subcommand").await?;
+
+    Ok(())
+}
 /// Log a completed game with placement
 #[poise::command(prefix_command, slash_command, check = has_system_account)]
-pub(crate) async fn postgame(
+pub(crate) async fn post(
     ctx: Context<'_>,
     #[description = "Time given for the game before overtime"] game_time: String,
     // AAAAAAAAA
@@ -297,7 +303,7 @@ pub(crate) async fn postgame(
 
 /// See the results of a potential match
 #[poise::command(prefix_command, slash_command)]
-pub(crate) async fn whatif_game(
+pub(crate) async fn whatif(
     ctx: Context<'_>,
     // AAAAAAAAA
     #[description = "The winner of the hypothetical game"] user1: User,
