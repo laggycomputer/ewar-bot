@@ -1,13 +1,13 @@
+use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty};
 use crate::model::{EventNumber, LeagueInfo, StandingEvent, StandingEventInner};
 use crate::util::constants::TRUESKILL_CONFIG;
 use crate::{BotError, BotVars};
 use bson::doc;
 use futures::StreamExt;
 use itertools::Itertools;
-use skillratings::trueskill::{trueskill_multi_team, TrueSkillRating};
+use skillratings::trueskill::{expected_score_multi_team, trueskill_multi_team, TrueSkillRating};
 use skillratings::MultiTeamOutcome;
 use tokio_postgres::types::Type;
-use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty};
 
 pub(crate) trait RatingExtra {
     fn from_row(row: &tokio_postgres::Row) -> Self;
@@ -36,6 +36,19 @@ impl RatingExtra for TrueSkillRating {
     fn format_rating(&self) -> String {
         format!("{:.2}{}", self.leaderboard_rating(), if self.is_provisional() { "**?**" } else { "" })
     }
+}
+
+pub(crate) fn expected_outcome(placement: &Vec<TrueSkillRating>) -> Vec<f64> {
+    let ratings = placement.iter()
+        .map(|rating| vec![*rating])
+        .collect_vec();
+
+    expected_score_multi_team(
+        ratings.iter()
+            .map(|rating| &rating[..])
+            .collect_vec()
+            .as_slice(),
+        &TRUESKILL_CONFIG)
 }
 
 pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueSkillRating> {

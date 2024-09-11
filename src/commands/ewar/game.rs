@@ -7,7 +7,7 @@ use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
-use crate::util::rating::game_affect_ratings;
+use crate::util::rating::{expected_outcome, game_affect_ratings};
 use crate::util::rating::RatingExtra;
 use crate::util::short_user_reference;
 use crate::{BotError, Context};
@@ -332,9 +332,12 @@ pub(crate) async fn whatif(
         Ok(ret) => ret
     };
 
-    let new_ratings = game_affect_ratings(&placement_system_users.iter()
+    let placement_ratings = placement_system_users.iter()
         .map(|(_, _, rating)| *rating)
-        .collect_vec());
+        .collect_vec();
+
+    let new_ratings = game_affect_ratings(&placement_ratings);
+    let win_chances = expected_outcome(&placement_ratings);
 
     let mut rating_supply_delta = 0f64;
 
@@ -347,13 +350,14 @@ pub(crate) async fn whatif(
         rating_supply_delta += new_rating.rating - old_rating.rating;
 
         leaderboard += &*(format!(
-            "{}. {} → {} ({:+.2}): {} ({})\n",
+            "{}. {} → {} ({:+.2}): {} ({}) had a {:.2}% chance at winning\n",
             index + 1,
             old_rating.format_rating(),
             new_rating.format_rating(),
             leaderboard_delta,
             placement_discord[index].mention(),
             short_user_reference(&placement_system_users[index].0, placement_system_users[index].1),
+            win_chances[index] * 100.0,
         ))
     }
 
