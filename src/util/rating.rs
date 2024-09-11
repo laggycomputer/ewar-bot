@@ -73,6 +73,8 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
         .sort(doc! { "_id": 1 }).await?;
 
     while let Some(standing_event) = allegedly_unreviewed.next().await {
+        if first_unreviewed_event_number_num >= stop_before.unwrap_or(EventNumber::MAX) { break; }
+
         let standing_event = standing_event?;
         let StandingEvent { inner, approval_status, .. } = standing_event;
         match approval_status {
@@ -82,8 +84,6 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
                 if approval_status.approved {
                     inner.process_effect(&pg_trans).await?;
                 }
-
-                if first_unreviewed_event_number_num == stop_before.unwrap_or(EventNumber::MAX) { break; }
             }
         }
     }
