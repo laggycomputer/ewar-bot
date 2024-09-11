@@ -4,8 +4,8 @@ use crate::ewar::user::UserLookupType;
 use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
-use crate::util::base_embed;
-use crate::util::checks::{has_system_account, is_league_moderator, _is_league_moderator};
+use crate::util::{base_embed, remove_markdown};
+use crate::util::checks::{_is_league_moderator, has_system_account, is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra;
@@ -135,7 +135,9 @@ pub(crate) async fn postgame(
     let emb_desc = format!(
         "you are logging a game with the following result:\n{}\n{}",
         placement_discord.iter().zip(placement_system_users.iter()).enumerate()
-            .map(|(index, (discord_user, (handle, id, _)))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
+            .map(|(index, (discord_user, (handle, id, _)))| format!(
+                "{}. {} ({}, ID {})", index + 1, discord_user.mention(), remove_markdown(handle), id)
+            )
             .join("\n"),
         if !poster_not_moderator {
             "\n**as a moderator, your confirmation will submit and approve the game immediately**"
