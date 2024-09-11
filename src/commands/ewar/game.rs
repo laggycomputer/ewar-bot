@@ -166,8 +166,6 @@ pub(crate) async fn post(
         .timeout(Duration::from_secs(10)).await;
 
     if waited.is_none() {
-        msg_part2.edit(ctx, CreateReply::default()
-            .components(vec![])).await?;
         ctx.reply("timed out, submission of this game cancelled").await?;
         return Ok(());
     }
