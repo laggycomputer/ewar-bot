@@ -350,7 +350,7 @@ pub(crate) async fn whatif(
         rating_supply_delta += new_rating.rating - old_rating.rating;
 
         leaderboard += &*(format!(
-            "{}. {} → {} ({:+.2}): {} ({}) had a {:.2}% chance at winning\n",
+            "{}. {} → {} ({:+.2}): {} ({}) has a {:.2}% chance at winning\n",
             index + 1,
             old_rating.format_rating(),
             new_rating.format_rating(),
