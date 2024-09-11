@@ -4,7 +4,7 @@ pub(crate) mod constants;
 
 use crate::commands::ewar::user::try_lookup_user;
 use crate::commands::ewar::user::UserLookupType::SystemID;
-use crate::model::{PlayerID, StandingEvent, StandingEventInner};
+use crate::model::{PlayerID, SqlUser, StandingEvent, StandingEventInner};
 use crate::{BotError, Context};
 use chrono::Utc;
 use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};
@@ -38,6 +38,16 @@ pub(crate) fn short_user_reference(handle: &str, id: PlayerID) -> Box<str> {
     format!("{}, ID {}", remove_markdown(handle), id).to_owned().into_boxed_str()
 }
 
+impl SqlUser {
+    pub(crate) fn short_summary(&self) -> Box<str> {
+        match self.discord_ids.get(0) {
+            None => self.handle.clone(),
+            Some(discord_id) => discord_id.mention().to_string().into_boxed_str()
+        }
+    }
+}
+
+
 impl StandingEvent {
     pub(crate) async fn short_summary(&self, pg_conn: &deadpool_postgres::Object) -> Result<Box<str>, BotError> {
         match &self.inner {
@@ -48,10 +58,7 @@ impl StandingEvent {
                 }
 
                 let placement_string = {
-                    let users = looked_up.into_iter().map(|u| match u.discord_ids.get(0) {
-                        None => u.handle,
-                        Some(discord_id) => discord_id.mention().to_string().into_boxed_str(),
-                    }).collect_vec();
+                    let users = looked_up.into_iter().map(|u| u.short_summary()).collect_vec();
 
                     if users.len() > 7 {
                         users[..7].join(", ") + ", ..."
