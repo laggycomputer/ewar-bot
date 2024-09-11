@@ -1,5 +1,6 @@
 use crate::model::StandingEventInner::JoinLeague;
 use crate::model::{ApprovalStatus, LeagueInfo, PlayerID, SqlUser, StandingEvent};
+use crate::util::constants::DEFAULT_RATING;
 use crate::util::rating::RatingExtra;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
@@ -182,13 +183,15 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         return Ok(());
     }
 
+    let TrueSkillRating { rating, uncertainty, .. } = DEFAULT_RATING;
+
     let trans = pg_conn.build_transaction()
         .deferrable(true)
         .start().await?;
 
     let new_id: PlayerID = trans.query_one(
-        "INSERT INTO players (player_name) VALUES ($1) RETURNING player_id;",
-        &[&proposed_name],
+        "INSERT INTO players (player_name, rating, deviation) VALUES ($1, $2, $3) RETURNING player_id;",
+        &[&proposed_name, &rating, &uncertainty],
     ).await?
         .get("player_id");
     trans.execute(
@@ -214,8 +217,8 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         }),
         inner: JoinLeague {
             victims: vec![new_id],
-            initial_rating: 18.0,
-            initial_deviation: 9.0,
+            initial_rating: rating,
+            initial_deviation: uncertainty,
         },
         when: Utc::now(),
     }).await?;

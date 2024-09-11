@@ -3,8 +3,9 @@ use crate::{BotError, BotVars};
 use bson::doc;
 use futures::StreamExt;
 use itertools::Itertools;
-use skillratings::trueskill::{trueskill_multi_team, TrueSkillConfig, TrueSkillRating};
+use skillratings::trueskill::{trueskill_multi_team, TrueSkillRating};
 use skillratings::MultiTeamOutcome;
+use crate::util::constants::TRUESKILL_CONFIG;
 
 pub(crate) trait RatingExtra {
     fn from_row(row: &tokio_postgres::Row) -> Self;
@@ -47,12 +48,7 @@ pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueS
             .map(|(index, rating)| (&rating[..], MultiTeamOutcome::new(index + 1)))
             .collect_vec()
             .as_slice(),
-        &TrueSkillConfig {
-            draw_probability: 0f64,
-            beta: 2f64,
-            // aka tau
-            default_dynamics: 0.04,
-        }).into_iter()
+        &TRUESKILL_CONFIG).into_iter()
         .map(|team| team[0])
         .collect_vec()
 }
