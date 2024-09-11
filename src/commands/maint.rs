@@ -7,6 +7,7 @@ use itertools::Itertools;
 use prettytable::{format, Row, Table};
 use serde::de::DeserializeOwned;
 use std::error::Error;
+use bson::Bson::Int64;
 use tokio::time::Instant;
 use tokio_postgres::types::Type;
 
@@ -84,6 +85,20 @@ pub(crate) async fn advance_pointer(
     ctx.reply(format!("ok, previously was up to event number {}, now up to and including event number {}",
                       first_unreviewed_event_number,
                       advance_approve_pointer(&ctx.data(), stop_at).await?)).await?;
+
+    Ok(())
+}
+
+/// move the advance pointer back to 0
+#[poise::command(prefix_command, slash_command, owners_only)]
+pub(crate) async fn force_reprocess(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one_and_update(doc! {}, doc! { "$set": doc! {"first_unreviewed_event_number": Int64(0) } })
+        .await?
+        .expect("league_info struct missing");
+
+    ctx.reply("ok").await?;
 
     Ok(())
 }

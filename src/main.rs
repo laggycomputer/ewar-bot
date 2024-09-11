@@ -65,6 +65,7 @@ async fn main() {
                 maint::sql(),
                 maint::advance_pointer(),
                 maint::fsck(),
+                maint::force_reprocess(),
                 ewar::user::lookup(),
                 ewar::user::register(),
                 ewar::game::postgame(),
