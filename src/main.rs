@@ -22,7 +22,7 @@ use yaml_rust2::YamlLoader;
 struct BotVars {
     mongo: mongodb::Database,
     postgres: deadpool_postgres::Pool,
-    update_ratings_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>
+    update_ratings_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>,
 }
 
 #[tokio::main]
@@ -42,9 +42,12 @@ async fn main() {
 
     let register_globally = config_doc["register_commands"]["global"].as_bool().expect("bad global register setting");
     let guilds_to_register_in = if config_doc["register_commands"]["local"]["enabled"].as_bool().expect("bad local register setting") {
-        config_doc["register_commands"]["local"]["guilds"].as_vec().iter().map(|id|
+        config_doc["register_commands"]["local"]["guilds"]
+            .as_vec().iter()
+            .next().expect("private guilds array is empty")
+            .iter().map(|id|
             GuildId::from(
-                id[0].as_str().expect("bad register guild id")
+                id.as_str().expect("bad register guild id")
                     .parse::<u64>().expect("guild id not valid snowflake")
             )
         ).collect_vec()
