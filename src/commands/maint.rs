@@ -76,7 +76,7 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String, as_csv: Option<bool>) -
                         let buf = table.to_csv(BufWriter::new(Vec::new()))?;
                         CreateAttachment::bytes(buf.into_inner()?.into_inner()?, "out.csv")
                     } else {
-                        CreateAttachment::bytes(table.to_string(), "out.sql")
+                        CreateAttachment::bytes(table.to_string(), "out.txt")
                     })
                     .content(ok_in_section))
                     .await?;
