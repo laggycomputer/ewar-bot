@@ -1,10 +1,11 @@
+use crate::util::rating::advance_approve_pointer;
 use crate::{BotError, Context};
 use itertools::Itertools;
 use prettytable::{format, Row, Table};
 use tokio::time::Instant;
 use tokio_postgres::types::Type;
 
-fn get_null_string() -> String{
+fn get_null_string() -> String {
     String::from("NULL")
 }
 
@@ -60,5 +61,13 @@ pub(crate) async fn sql(ctx: Context<'_>, query: String) -> Result<(), BotError>
             ctx.reply(format!("ok in {}ms:```\n{table}```", elapsed.as_millis())).await?;
         }
     }
+    Ok(())
+}
+
+/// attempt to advance the approve pointer (be careful)
+#[poise::command(prefix_command, slash_command, owners_only)]
+pub(crate) async fn advance_pointer(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.reply(format!("ok, applied to and including event number {}", advance_approve_pointer(&ctx.data()).await?)).await?;
+
     Ok(())
 }
