@@ -137,7 +137,7 @@ pub(crate) async fn postgame(
         placement_discord.iter().zip(placement_system_users.iter()).enumerate()
             .map(|(index, (discord_user, (handle, id, _)))| format!("{}. {} ({}, ID {})", index + 1, discord_user.mention(), handle, id))
             .join("\n"),
-        if poster_not_moderator {
+        if !poster_not_moderator {
             "\n**as a moderator, your confirmation will submit and approve the game immediately**"
         } else { "" });
 
