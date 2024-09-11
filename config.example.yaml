@@ -11,3 +11,7 @@ creds:
   mongo:
     uri: ""
     db: ""
+
+league:
+  moderator_discords:
+    -

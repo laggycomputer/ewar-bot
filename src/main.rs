@@ -9,9 +9,10 @@ use itertools::Itertools;
 use mongodb::bson::doc;
 use pluralizer::pluralize;
 use poise::{FrameworkOptions, PrefixFrameworkOptions};
-use serenity::all::GatewayIntents;
 use serenity::all::GuildId;
+use serenity::all::{GatewayIntents, UserId};
 use serenity::Client;
+use std::collections::HashSet;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
@@ -23,6 +24,7 @@ struct BotVars {
     mongo: mongodb::Database,
     postgres: deadpool_postgres::Pool,
     update_ratings_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>,
+    league_moderators: HashSet<UserId>,
 }
 
 #[tokio::main]
@@ -59,6 +61,17 @@ async fn main() {
     let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad mongo db").to_string();
 
     let postgres_uri = config_doc["creds"]["postgres"].as_str().expect("bad postgres uri").to_string();
+
+    let moderator_discord_ids =
+        config_doc["league"]["moderator_discords"]
+            .as_vec().iter()
+            .next().expect("moderator discord id array is empty (specify one empty element?)")
+            .iter().map(|id|
+            UserId::from(
+                id.as_str().expect("bad league moderator discord id")
+                    .parse::<u64>().expect("league moderator discord id not valid snowflake")
+            )
+        ).collect_vec();
 
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
@@ -116,6 +129,7 @@ async fn main() {
                     mongo,
                     postgres: pg_pool,
                     update_ratings_lock: Default::default(),
+                    league_moderators: moderator_discord_ids.into_iter().collect(),
                 })
             })
         })

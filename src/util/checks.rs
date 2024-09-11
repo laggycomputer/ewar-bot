@@ -3,7 +3,7 @@ use crate::{BotError, Context};
 use poise::CreateReply;
 
 pub(crate) async fn _is_league_moderator(ctx: Context<'_>) -> Result<bool, BotError> {
-    Ok(ctx.author().id.get() == 328678556899213322)
+    Ok(ctx.data().league_moderators.contains(&ctx.author().id))
 }
 
 pub(crate) async fn is_league_moderator(ctx: Context<'_>) -> Result<bool, BotError> {
