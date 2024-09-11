@@ -82,7 +82,7 @@ pub(crate) async fn advance_pointer(
         .await?
         .expect("league_info struct missing");
 
-    ctx.reply(format!("ok, previously was up to event number {}, now up to and including event number {}",
+    ctx.reply(format!("ok, previously was up to event number {}, now stopped before event number {}",
                       first_unreviewed_event_number,
                       advance_approve_pointer(&ctx.data(), stop_before).await?)).await?;
 
