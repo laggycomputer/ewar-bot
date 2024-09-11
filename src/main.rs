@@ -80,7 +80,6 @@ async fn main() {
                 mention_as_prefix: true,
                 ..Default::default()
             },
-            skip_checks_for_owners: true,
             ..Default::default()
         })
         .setup(move |ctx, _ready, framework| {
