@@ -259,14 +259,10 @@ pub(crate) async fn postgame(
     let participant_system_ids = placement_system_users.iter().map(|(_, player_id, _)| *player_id).collect_vec();
 
     let signed_game = Game {
-        _id: available_game_id,
-        participants: participant_system_ids.clone(),
+        game_id: available_game_id,
+        ranking: participant_system_ids.clone(),
         length: time_seconds,
-        when: submitted_time,
-        event_number: available_event_number,
     };
-
-    ctx.data().mongo.collection::<Game>("games").insert_one(signed_game).await?;
 
     let event = StandingEvent {
         _id: available_event_number,
@@ -276,7 +272,7 @@ pub(crate) async fn postgame(
                 reviewer: poster_info.player_id,
             })
         },
-        inner: GameEnd { game_id: available_game_id },
+        inner: GameEnd(signed_game),
         when: submitted_time,
     };
 
@@ -304,8 +300,8 @@ pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
     #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
-    let Game { participants, .. } = match ctx.data().mongo.collection::<Game>("games").find_one(
-        doc! { "_id": game_id as i64 }).await? {
+    let corresponding_event = match ctx.data().mongo.collection::<StandingEvent>("events").find_one(
+        doc! { "inner": doc! { "GameEnd": doc! { "game_id": game_id } } }).await? {
         None => {
             ctx.send(CreateReply::default()
                 .content(":x: that game DNE")
@@ -315,17 +311,12 @@ pub(crate) async fn review(
         Some(game) => game
     };
 
-    let corresponding_event = match ctx.data().mongo.collection::<StandingEvent>("events").find_one(doc! {
-        "inner": doc! { "GameEnd": doc! { "game_id": game_id } }
-    }).await? {
-        None => {
-            ctx.send(CreateReply::default()
-                .content(":x: that event is not a game")
-                .ephemeral(true)).await?;
-            return Ok(());
-        }
-        Some(evt) => evt
+    let StandingEvent {
+        inner: GameEnd(Game { ranking, .. }), ..
+    } = corresponding_event else {
+        return Err(format!("event resembling game with game ID {game_id} is invalid").into())
     };
+
     if corresponding_event.approval_status.is_some() {
         ctx.send(CreateReply::default()
             .content(":x: that game already reviewed")
@@ -361,7 +352,7 @@ pub(crate) async fn review(
 
     if approved {
         // set everyone's last played
-        pg_conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &participants]).await?;
+        pg_conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &ranking]).await?;
 
         ctx.send(CreateReply::default()
             .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;

@@ -84,7 +84,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars) -> Result<EventNumbe
             Some(approval_status) => {
                 first_unreviewed_event_number_num += 1;
                 if approval_status.approved {
-                    inner.process_effect(data, &pg_trans).await?;
+                    inner.process_effect(&pg_trans).await?;
                 }
             }
         }

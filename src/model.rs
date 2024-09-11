@@ -1,6 +1,6 @@
 use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty};
 use crate::util::rating::{game_affect_ratings, RatingExtra};
-use crate::{BotError, BotVars};
+use crate::BotError;
 use bson::doc;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -27,16 +27,14 @@ pub(crate) struct ApprovalStatus {
     pub(crate) reviewer: PlayerID,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct Game {
-    pub(crate) _id: GameID,
+    pub(crate) game_id: GameID,
     // in placement order
-    pub(crate) participants: Vec<PlayerID>,
+    pub(crate) ranking: Vec<PlayerID>,
     // seconds long
     pub(crate) length: u32,
     // time submitted to system
-    pub(crate) when: DateTimeType,
-    pub(crate) event_number: EventNumber,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -47,7 +45,7 @@ pub(crate) enum StandingEventInner {
     // add deviation for inactivity
     InactivityDecay { victims: Vec<PlayerID>, delta_deviation: f64 },
     // regular game
-    GameEnd { game_id: GameID },
+    GameEnd(Game),
     SetStanding { victims: Vec<PlayerID>, new_rating: Option<f64>, new_deviation: Option<f64>, reason: String },
     ChangeStanding { victims: Vec<PlayerID>, delta_rating: Option<f64>, delta_deviation: Option<f64>, reason: String },
     JoinLeague { victims: Vec<PlayerID>, initial_rating: f64, initial_deviation: f64 },
@@ -73,7 +71,7 @@ impl StandingEventInner {
         }
     }
 
-    pub(crate) async fn process_effect(&self, data: &BotVars, pg_trans: &deadpool_postgres::Transaction<'_>) -> Result<(), BotError> {
+    pub(crate) async fn process_effect(&self, pg_trans: &deadpool_postgres::Transaction<'_>) -> Result<(), BotError> {
         let self_processable = match self {
             Penalty { .. } | InactivityDecay { .. } => &self.clone()
                 .try_into_generic_variant().expect("1984"),
@@ -81,7 +79,7 @@ impl StandingEventInner {
         };
 
         match self_processable {
-            GameEnd { game_id } => {
+            GameEnd(game) => {
                 let prepared_select = pg_trans.prepare_typed_cached(
                     "SELECT rating, deviation FROM players WHERE player_id = $1;",
                     &[Type::INT4]).await?;
@@ -89,18 +87,15 @@ impl StandingEventInner {
                     "UPDATE players SET rating = $1, deviation = $2 WHERE player_id = $3;",
                     &[Type::FLOAT8, Type::FLOAT8, Type::INT4]).await?;
 
-                let game = data.mongo.collection::<Game>("games").find_one(doc! { "_id": game_id }).await?
-                    .expect("standing event points to game which DNE");
-
-                let mut old_ratings = Vec::with_capacity(game.participants.len());
-                for party_id in game.participants.iter() {
+                let mut old_ratings = Vec::with_capacity(game.ranking.len());
+                for party_id in game.ranking.iter() {
                     let row = pg_trans.query_one(&prepared_select, &[party_id]).await?;
                     old_ratings.push(TrueSkillRating::from_row(&row));
                 }
 
                 let new_ratings = game_affect_ratings(&old_ratings);
-                for (party_id, new_rating) in game.participants.into_iter().zip(new_ratings.into_iter()) {
-                    pg_trans.execute(&prepared_update, &[&new_rating.rating, &new_rating.uncertainty, &party_id]).await?;
+                for (party_id, new_rating) in game.ranking.iter().zip(new_ratings.into_iter()) {
+                    pg_trans.execute(&prepared_update, &[&new_rating.rating, &new_rating.uncertainty, party_id]).await?;
                 }
             }
             ChangeStanding { victims, delta_rating, delta_deviation, .. } => {
