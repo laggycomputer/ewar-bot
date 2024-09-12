@@ -78,7 +78,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
     let mut first_unreviewed_event_number_num = league_info.first_unreviewed_event_number;
 
     let mut allegedly_unreviewed = data.mongo.collection::<StandingEvent>("events")
-        .find(doc! { "_id": doc! {"$gte": first_unreviewed_event_number_num } })
+        .find(doc! { "_id": {"$gte": first_unreviewed_event_number_num } })
         .sort(doc! { "_id": 1 }).await?;
 
     while let Some(standing_event) = allegedly_unreviewed.next().await {
@@ -98,7 +98,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
     }
 
     league_info_collection.update_one(doc! {}, doc! {
-        "$max": doc! { "first_unreviewed_event_number": first_unreviewed_event_number_num as i64 },
+        "$max": { "first_unreviewed_event_number": first_unreviewed_event_number_num as i64 },
     }).await?;
 
     Ok(first_unreviewed_event_number_num)
@@ -150,22 +150,22 @@ impl StandingEventInner {
             ChangeStanding { victims, delta_rating, delta_deviation, .. } => {
                 if let Some(delta_rating) = delta_rating {
                     mongo.collection::<Player>("players").update_many(
-                        doc! { "_id": doc! { "$in": victims } },
-                        doc! { "$inc": doc! { "rating": delta_rating } },
+                        doc! { "_id": { "$in": victims } },
+                        doc! { "$inc": { "rating": delta_rating } },
                     ).await?;
                 }
 
                 if let Some(delta_deviation) = delta_deviation {
                     mongo.collection::<Player>("players").update_many(
-                        doc! { "_id": doc! { "$in": victims } },
-                        doc! { "$inc": doc! { "deviation": delta_deviation } },
+                        doc! { "_id": { "$in": victims } },
+                        doc! { "$inc": { "deviation": delta_deviation } },
                     ).await?;
                 }
             }
             JoinLeague { victims, initial_rating, initial_deviation } => {
                 mongo.collection::<Player>("players").update_many(
-                    doc! { "_id": doc! { "$in": victims } },
-                    doc! { "set": doc! { "rating": initial_rating, "deviation": initial_deviation } },
+                    doc! { "_id": { "$in": victims } },
+                    doc! { "set": { "rating": initial_rating, "deviation": initial_deviation } },
                 ).await?;
             }
             _ => return Err("don't know how to handle this event type yet".into())

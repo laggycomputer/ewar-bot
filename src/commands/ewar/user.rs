@@ -159,7 +159,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         .collection::<LeagueInfo>("league_info")
         .find_one_and_update(
             doc! {},
-            doc! { "$inc": doc! { "available_event_number": 1, "available_player_id": 1, } })
+            doc! { "$inc": { "available_event_number": 1, "available_player_id": 1, } })
         .await?
         .expect("league_info struct missing");
 

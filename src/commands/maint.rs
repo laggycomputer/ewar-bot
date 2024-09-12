@@ -38,10 +38,10 @@ pub(crate) async fn advance_pointer(
 pub(crate) async fn force_reprocess(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.data().mongo
         .collection::<LeagueInfo>("league_info")
-        .update_one(doc! {}, doc! { "$set": doc! {"first_unreviewed_event_number": Int64(0) } })
+        .update_one(doc! {}, doc! { "$set": {"first_unreviewed_event_number": Int64(0) } })
         .await?;
 
-    ctx.data().mongo.collection::<Player>("players").update_many(doc! {}, doc! { "$set": doc! { "rating": 0, "deviation": 0 } }).await?;
+    ctx.data().mongo.collection::<Player>("players").update_many(doc! {}, doc! { "$set": { "rating": 0, "deviation": 0 } }).await?;
 
     ctx.reply("ok").await?;
     Ok(())

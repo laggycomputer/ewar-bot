@@ -20,7 +20,7 @@ pub(crate) async fn log(
     ctx.defer().await?;
 
     let filter_doc = if before.is_some() {
-        doc! { "_id": doc! { "$lte": before.unwrap() } }
+        doc! { "_id": { "$lte": before.unwrap() } }
     } else {
         doc! {}
     };

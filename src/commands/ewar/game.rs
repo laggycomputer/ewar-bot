@@ -249,7 +249,7 @@ pub(crate) async fn post(
         .collection::<LeagueInfo>("league_info")
         .find_one_and_update(
             doc! {},
-            doc! { "$inc": doc! { "available_game_id": 1, "available_event_number": 1, } })
+            doc! { "$inc": { "available_game_id": 1, "available_event_number": 1, } })
         .await?
         .expect("league_info struct missing");
 
@@ -422,11 +422,11 @@ pub(crate) async fn log(
     ctx.defer().await?;
 
     let filter_doc = if before.is_some() {
-        doc! { "inner.GameEnd": doc! { "$exists": true },
-            "inner.GameEnd.game_id": doc! { "$lte": before.unwrap() }
+        doc! { "inner.GameEnd": { "$exists": true },
+            "inner.GameEnd.game_id": { "$lte": before.unwrap() }
         }
     } else {
-        doc! { "inner.GameEnd": doc! { "$exists": true } }
+        doc! { "inner.GameEnd": { "$exists": true } }
     };
 
     let mut lines = Vec::new();

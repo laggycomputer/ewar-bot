@@ -49,7 +49,7 @@ pub(crate) async fn review(
 
     let StandingEvent { _id: event_number, when, .. } = ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
         doc! { "_id": corresponding_event._id },
-        doc! { "$set": doc! { "approval_status": doc! {
+        doc! { "$set": { "approval_status": {
                     "approved": approved,
                     "reviewer": Some(player._id),
                 } } })
@@ -78,7 +78,7 @@ pub(crate) async fn review(
 pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
     let find = ctx.data().mongo.collection::<StandingEvent>("events")
         .find(doc! {
-            "inner.GameEnd": doc! { "$exists": true },
+            "inner.GameEnd": { "$exists": true },
             "approval_status": Bson::Null,
         })
         .sort(doc! { "_id": 1 })
@@ -152,7 +152,7 @@ pub(crate) async fn penalize(
         .collection::<LeagueInfo>("league_info")
         .find_one_and_update(
             doc! {},
-            doc! { "$inc": doc! { "available_event_number": 1, } })
+            doc! { "$inc": { "available_event_number": 1, } })
         .await?
         .expect("league_info struct missing");
 
