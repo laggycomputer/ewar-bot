@@ -4,7 +4,11 @@ mod commands;
 mod model;
 
 use crate::commands::{ewar, maint, meta};
+use crate::model::StandingEventInner::InactivityDecay;
+use crate::model::{ApprovalStatus, LeagueInfo, Player, StandingEvent};
+use chrono::{TimeDelta, Utc};
 use clap::ValueHint;
+use futures::TryStreamExt;
 use itertools::Itertools;
 use mongodb::bson::doc;
 use pluralizer::pluralize;
@@ -16,7 +20,39 @@ use std::collections::HashSet;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
+use tokio_cron::{daily, Job, Scheduler};
 use yaml_rust2::YamlLoader;
+
+async fn inactivity_decay_job(mongo_uri: String, mongo_db: String) -> Result<(), BotError> {
+    let mongo = mongodb::Client::with_uri_str(mongo_uri).await?.database(&*mongo_db);
+    let victims = mongo.collection::<Player>("players").find(doc! {
+        "last_played": {
+            "$lt": bson::DateTime::from_chrono(Utc::now() - TimeDelta::days(7))
+        }
+    }).await?
+        .try_filter_map(|p| async move { Ok(Some(p._id)) })
+        .try_collect::<Vec<_>>().await?;
+
+    let LeagueInfo { available_event_number, .. } = mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one_and_update(
+            doc! {},
+            doc! { "$inc": { "available_event_number": 1 } })
+        .await?
+        .expect("league_info struct missing");
+
+    mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
+        _id: available_event_number,
+        approval_status: Some(ApprovalStatus {
+            approved: true,
+            reviewer: None,
+        }),
+        inner: InactivityDecay { victims, delta_deviation: 0.1 },
+        when: Utc::now(),
+    }).await?;
+
+    Ok(())
+}
 
 struct BotVars {
     mongo: mongodb::Database,
@@ -67,6 +103,23 @@ async fn main() {
                     .parse::<u64>().expect("league moderator discord id not valid snowflake")
             )
         ).collect_vec();
+
+    let mut scheduler = Scheduler::local();
+    {
+        let mongo_uri = mongo_uri.clone();
+        let mongo_db = mongo_db.clone();
+        scheduler.add(Job::named("inactivity_decay", daily("0"), move || {
+            let mongo_uri = mongo_uri.clone();
+            let mongo_db = mongo_db.clone();
+            async move {
+                match inactivity_decay_job(mongo_uri, mongo_db).await.err() {
+                    None => {}
+                    Some(err) => { eprintln!("{}", err) }
+                }
+            }
+        }));
+        println!("cron job for decay ok")
+    }
 
     let framework = poise::Framework::<BotVars, BotError>::builder()
         .options(FrameworkOptions {
