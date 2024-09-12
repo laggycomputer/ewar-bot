@@ -125,3 +125,14 @@ pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] re
 
     Ok(())
 }
+
+/// forcibly do deviation decay now
+#[poise::command(prefix_command, slash_command, owners_only)]
+pub(crate) async fn do_decay(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.defer().await?;
+
+    inactivity_decay_inner(&ctx.data().mongo).await?;
+    ctx.reply("ok").await?;
+
+    Ok(())
+}

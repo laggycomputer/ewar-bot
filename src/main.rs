@@ -20,11 +20,17 @@ use std::collections::HashSet;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
+use mongodb::Database;
 use tokio_cron::{daily, Job, Scheduler};
 use yaml_rust2::YamlLoader;
 
 async fn inactivity_decay_job(mongo_uri: String, mongo_db: String) -> Result<(), BotError> {
     let mongo = mongodb::Client::with_uri_str(mongo_uri).await?.database(&*mongo_db);
+
+    inactivity_decay_inner(&mongo).await
+}
+
+async fn inactivity_decay_inner(mongo: &Database) -> Result<(), BotError> {
     let victims = mongo.collection::<Player>("players").find(doc! {
         "last_played": {
             "$lt": bson::DateTime::from_chrono(Utc::now() - TimeDelta::days(7))
@@ -129,6 +135,7 @@ async fn main() {
                 maint::advance_pointer(),
                 maint::fsck(),
                 maint::force_reprocess(),
+                maint::do_decay(),
                 ewar::event::event(),
                 ewar::user::user(),
                 ewar::user::register(),
