@@ -1,7 +1,8 @@
+use std::cmp::min;
 use crate::model::{EventNumber, LeagueInfo, Player, StandingEvent};
 use crate::util::checks::is_league_moderator;
 use crate::util::rating::advance_approve_pointer;
-use crate::{BotError, Context};
+use crate::{inactivity_decay_inner, BotError, Context};
 use bson::Bson::Int64;
 use bson::{doc, Bson, Document};
 use futures::TryStreamExt;
@@ -115,10 +116,10 @@ pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] re
     } else {
         if repair.unwrap_or(false) {
             let mut fix_league_info = LeagueInfo::from(league_info);
-            // fix_league_info.available_event_number = first_missing_event;
+            fix_league_info.available_event_number = min(fix_league_info.available_event_number, first_missing_event);
             fix_league_info.first_unreviewed_event_number = first_unreviewed_event;
             ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_replace(doc! {}, fix_league_info).await?;
-            ctx.reply("fixing approve pointer").await?;
+            ctx.reply("fixing approve pointer, trimming free event number as necessary").await?;
         }
     }
 
