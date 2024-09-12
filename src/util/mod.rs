@@ -49,7 +49,7 @@ impl SqlUser {
 
 impl StandingEvent {
     pub(crate) async fn short_summary(&self, pg_conn: &deadpool_postgres::Object) -> Result<Box<str>, BotError> {
-        match &self.inner {
+        let summary = match &self.inner {
             StandingEventInner::GameEnd(game) => {
                 let mut looked_up = Vec::with_capacity(game.ranking.len());
                 for player_id in game.ranking.iter() {
@@ -71,16 +71,19 @@ impl StandingEvent {
                     .num_items(2)
                     .min_unit(Seconds);
 
-                Ok(format!(
+                format!(
                     "game ID {} on <t:{}:d> ({}): {}",
                     game.game_id,
                     self.when.timestamp(),
                     time_formatter.convert_chrono(self.when, Utc::now()),
                     placement_string,
-                ).into_boxed_str())
+                )
             }
-            _ => Ok(Box::from("don't know how to summarize this event type"))
-        }
+            _ => String::from("don't know how to summarize this event type")
+        };
+
+        Ok((if self.approval_status.as_ref()
+            .is_some_and(|st| !st.approved) { format!("~~{summary}~~") } else { summary }).into_boxed_str())
     }
 }
 
