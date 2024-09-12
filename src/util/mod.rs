@@ -89,6 +89,16 @@ impl StandingEvent {
                     "{} joined league with rating {initial_rating}, deviation {initial_deviation}",
                     looked_up.into_iter().map(|u| u.short_summary()).join(", "))
             }
+            StandingEventInner::Penalty { victims, delta_rating, reason } => {
+                let mut looked_up = Vec::with_capacity(victims.len());
+                for player_id in victims.iter() {
+                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("penalized user not found"));
+                }
+
+                format!("{} penalized {:+.2} rating for {reason}",
+                        looked_up.into_iter().map(|u| u.short_summary()).join(", "),
+                        -delta_rating)
+            }
             _ => String::from("don't know how to summarize this event type")
         };
 
