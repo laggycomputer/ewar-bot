@@ -7,6 +7,7 @@ use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
+use crate::util::paginate::EmbedLinePaginator;
 use crate::util::rating::RatingExtra;
 use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
 use crate::util::short_user_reference;
@@ -22,7 +23,6 @@ use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
 use timeago::TimeUnit::Seconds;
-use crate::util::paginate::EmbedLinePaginator;
 
 enum BadPlacementType {
     DuplicateUser,
