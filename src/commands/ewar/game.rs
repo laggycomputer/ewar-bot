@@ -77,6 +77,7 @@ pub(crate) async fn game(ctx: Context<'_>) -> Result<(), BotError> {
 
     Ok(())
 }
+
 /// Log a completed game with placement
 #[poise::command(prefix_command, slash_command, check = has_system_account)]
 pub(crate) async fn post(
@@ -455,9 +456,7 @@ pub(crate) async fn log(
         .sort(doc! { "_id": -1 })
         .limit(200)
         .await?;
-    while let Some(event) = cur.try_next().await? {
-        lines.push(event.short_summary(&pg_conn).await?);
-    }
+    while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&pg_conn).await?) }
 
     EmbedLinePaginator::new(lines)
         .run(ctx).await?;
