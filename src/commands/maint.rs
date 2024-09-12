@@ -58,6 +58,7 @@ where
 /// check integrity of event log
 #[poise::command(prefix_command, slash_command, owners_only)]
 pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] repair: Option<bool>) -> Result<(), BotError> {
+    // TODO: check players collection and counter, check validity of player references
     ctx.defer().await?;
 
     let mut had_err = false;
