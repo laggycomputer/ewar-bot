@@ -76,7 +76,6 @@ async fn main() {
                 maint::advance_pointer(),
                 maint::fsck(),
                 maint::force_reprocess(),
-                maint::migrate(),
                 ewar::event::event(),
                 ewar::user::lookup(),
                 ewar::user::register(),

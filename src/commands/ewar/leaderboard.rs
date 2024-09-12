@@ -1,8 +1,9 @@
-use crate::commands::ewar::user::try_lookup_player;
-use crate::commands::ewar::user::UserLookupType::SystemID;
+use crate::model::{AggregatePlayer, Player};
 use crate::util::paginate::EmbedLinePaginator;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
+use bson::doc;
+use futures::TryStreamExt;
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -12,40 +13,50 @@ pub(crate) async fn leaderboard(
 ) -> Result<(), BotError> {
     ctx.defer().await?;
 
-    // TODO: lb with mongo
-//     let pg_conn = ctx.data().postgres.get().await?;
-//
-//     let lb_rows = pg_conn.query(match include_provisional.unwrap_or(false) {
-//         true => "\
-// SELECT player_id,
-//    CASE
-//        WHEN deviation > 2.5 THEN 10 * (rating - deviation)\
-//        ELSE 10 * rating
-//        END
-//        AS lb_rating
-// FROM players
-// ORDER BY lb_rating DESC;",
-//         false => "SELECT player_id, 10 * rating AS lb_rating FROM players WHERE deviation <= 2.5 ORDER BY lb_rating DESC;"
-//     }, &[]).await?;
-//
-//     if lb_rows.is_empty() {
-//         ctx.reply("no users in database").await?;
-//         return Ok(());
-//     }
-//
-//     let mut lb_lines = Vec::with_capacity(lb_rows.len());
-//     for (ind, row) in lb_rows.into_iter().enumerate() {
-//         let more_data = try_lookup_player(&pg_conn, SystemID(row.get("player_id"))).await?
-//             .expect("player_id DNE despite being on leaderboard");
-//
-//         let mut line = format!("{}: {}", more_data.short_summary(), more_data.rating.format_rating());
-//         line = if more_data.rating.is_provisional() { format!("~~{}~~", line) } else { line };
-//
-//         lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
-//     }
-//
-//     EmbedLinePaginator::new(lb_lines)
-//         .run(ctx).await?;
+    let sort_doc = doc! {"$sort": { "lb_rating": -1 }};
+    let aggregate_players = ctx.data().mongo.collection::<Player>("players").aggregate(if include_provisional.unwrap_or(false) {
+        let agg_doc = doc! {
+            "$project": {
+                "lb_rating": {
+                    "$cond": {
+                        "if": {"$gt": ["$deviation", 2.5]},
+                        "then": {"$multiply": [{"$subtract": ["$rating", "$deviation"]}, 10]},
+                        "else": {"$multiply": ["$rating", 10]},
+                    }
+                },
+                "inner": "$$ROOT"
+            }
+        };
+        vec![agg_doc, sort_doc]
+    } else {
+        let filter_doc = doc! {
+            "$match": {"deviation": {"$lte": 2.5}}
+        };
+        let agg_doc = doc! {
+            "$project": {
+                "lb_rating": {"$multiply": ["$rating", 10]},
+                "inner": "$$ROOT"
+            }
+        };
+        vec![filter_doc, agg_doc, sort_doc]
+    }).with_type::<AggregatePlayer>().await?
+        .try_collect::<Vec<_>>().await?;
+
+    if aggregate_players.is_empty() {
+        ctx.reply("no users found").await?;
+        return Ok(());
+    }
+
+    let mut lb_lines = Vec::with_capacity(aggregate_players.len());
+    for (ind, agg_player) in aggregate_players.into_iter().enumerate() {
+        let mut line = format!("{}: {}", agg_player.inner.short_summary(), agg_player.inner.rating_struct().format_rating());
+        line = if agg_player.inner.rating_struct().is_provisional() { format!("~~{}~~", line) } else { line };
+
+        lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
+    }
+
+    EmbedLinePaginator::new(lb_lines)
+        .run(ctx).await?;
 
     Ok(())
 }
