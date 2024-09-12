@@ -85,13 +85,13 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
         if first_unreviewed_event_number_num >= stop_before.unwrap_or(EventNumber::MAX) { break; }
 
         let standing_event = standing_event?;
-        let StandingEvent { inner, approval_status, .. } = standing_event;
+        let StandingEvent {  ref approval_status, .. } = standing_event;
         match approval_status {
             None => break,
             Some(approval_status) => {
                 first_unreviewed_event_number_num += 1;
                 if approval_status.approved {
-                    inner.process_effect(&data.mongo).await?;
+                    standing_event.process_effect(&data.mongo).await?;
                 }
             }
         }
@@ -104,28 +104,15 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
     Ok(first_unreviewed_event_number_num)
 }
 
-impl StandingEventInner {
-    /// convert to a different type to simplify handling
-    fn try_into_generic_variant(self) -> Option<Self> {
-        match self {
-            Penalty { victims, delta_rating, reason } => Some(ChangeStanding {
-                victims,
-                delta_rating: Some(delta_rating),
-                reason,
-                delta_deviation: None,
-            }),
-            _ => None
-        }
-    }
-
+impl StandingEvent {
     pub(crate) async fn process_effect(&self, mongo: &Database) -> Result<(), BotError> {
-        let self_processable = match self {
-            Penalty { .. } => &self.clone()
+        let inner_processable = match self.inner {
+            Penalty { .. } => &self.inner.clone()
                 .try_into_generic_variant().expect("1984"),
-            _ => self
+            _ => &self.inner
         };
 
-        match self_processable {
+        match inner_processable {
             InactivityDecay { victims, delta_deviation } => {
                 mongo.collection::<Player>("players").update_many(
                     doc! { "_id": { "$in": victims } },
@@ -138,6 +125,11 @@ impl StandingEventInner {
                 ).await?;
             }
             GameEnd(game) => {
+                mongo.collection::<Player>("players").update_many(
+                    doc! {"_id": {"$in": &game.ranking}},
+                    doc! {"$max": {"last_played": bson::DateTime::from_chrono(self.when)}},
+                ).await?;
+
                 let mut old_ratings = Vec::with_capacity(game.ranking.len());
                 for party_id in game.ranking.iter() {
                     let player = try_lookup_player(mongo, SystemID(*party_id)).await?.expect("party to game DNE");
@@ -177,5 +169,20 @@ impl StandingEventInner {
         }
 
         Ok(())
+    }
+}
+
+impl StandingEventInner {
+    /// convert to a different type to simplify handling
+    fn try_into_generic_variant(self) -> Option<Self> {
+        match self {
+            Penalty { victims, delta_rating, reason } => Some(ChangeStanding {
+                victims,
+                delta_rating: Some(delta_rating),
+                reason,
+                delta_deviation: None,
+            }),
+            _ => None
+        }
     }
 }

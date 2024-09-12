@@ -1,7 +1,7 @@
 use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
 use crate::model::StandingEventInner::{GameEnd, Penalty};
-use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, Player, PlayerID, StandingEvent};
+use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::checks::{has_system_account, is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::util::{base_embed, remove_markdown};
@@ -32,9 +32,7 @@ pub(crate) async fn review(
         Some(game) => game
     };
 
-    let StandingEvent {
-        inner: GameEnd(Game { ranking, .. }), ..
-    } = corresponding_event else {
+    let StandingEvent { inner: GameEnd(Game { .. }), .. } = corresponding_event else {
         return Err(format!("event resembling game with game ID {game_id} is invalid").into())
     };
 
@@ -47,7 +45,7 @@ pub(crate) async fn review(
 
     let player = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?.unwrap();
 
-    let StandingEvent { _id: event_number, when, .. } = ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
+    let StandingEvent { _id: event_number, .. } = ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
         doc! { "_id": corresponding_event._id },
         doc! {
             "$set": {
@@ -61,12 +59,6 @@ pub(crate) async fn review(
         .expect("standing event magically disappeared");
 
     if approved {
-        // set everyone's last played
-        ctx.data().mongo.collection::<Player>("players").update_many(
-            doc! {"_id": {"$in": ranking}},
-            doc! {"$max": {"last_played": bson::DateTime::from_chrono(when)}},
-        ).await?;
-
         ctx.send(CreateReply::default()
             .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
     } else {
