@@ -41,15 +41,15 @@ impl EmbedLinePaginator {
         let components = if self.pages.len() > 1 {
             vec![CreateActionRow::Buttons(vec![
                 CreateButton::new("embedinator_start")
-                    .emoji(ReactionType::Unicode("⏮️".parse().unwrap())),
+                    .emoji(ReactionType::Unicode(String::from("⏮️"))),
                 CreateButton::new("embedinator_previous")
-                    .emoji(ReactionType::Unicode("◀️".parse().unwrap())),
+                    .emoji(ReactionType::Unicode(String::from("◀️"))),
                 CreateButton::new("embedinator_next")
-                    .emoji(ReactionType::Unicode("▶️".parse().unwrap())),
+                    .emoji(ReactionType::Unicode(String::from("▶️"))),
                 CreateButton::new("embedinator_end")
-                    .emoji(ReactionType::Unicode("⏭️".parse().unwrap())),
+                    .emoji(ReactionType::Unicode(String::from("⏭️"))),
                 CreateButton::new("embedinator_stop")
-                    .emoji(ReactionType::Unicode("⏹️".parse().unwrap())),
+                    .emoji(ReactionType::Unicode(String::from("⏹️"))),
             ])]
         } else {
             vec![]
