@@ -1,8 +1,8 @@
 use crate::util::bot_invite_url;
-use serenity::all::{ActivityData, ActivityType, Context, EventHandler, Message, OnlineStatus, Permissions, Ready};
+use rand::seq::SliceRandom;
+use serenity::all::{ActivityData, ActivityType, Context, EventHandler, OnlineStatus, Permissions, Ready};
 use serenity::async_trait;
 use std::time::Duration;
-use rand::seq::SliceRandom;
 use tokio::time;
 
 pub(crate) struct EWarBotHandler;
