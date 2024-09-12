@@ -1,4 +1,4 @@
-use crate::commands::ewar::user::UserLookupType::{DiscordID, Username};
+use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
 use crate::model::StandingEventInner::{InactivityDecay, JoinLeague};
 use crate::model::{ApprovalStatus, LeagueInfo, Player, PlayerID, StandingEvent};
 use crate::util::constants::DEFAULT_RATING;
@@ -24,9 +24,9 @@ pub(crate) enum UserLookupType<'a> {
 
 pub(crate) async fn try_lookup_player(mongo: &Database, how: UserLookupType<'_>) -> Result<Option<Player>, BotError> {
     Ok(mongo.collection::<Player>("players").find_one(match how {
-        UserLookupType::DiscordID(id) => doc! { "discord_ids": id as i64 },
-        UserLookupType::Username(handle) => doc! { "username": handle },
-        UserLookupType::SystemID(id) => doc! { "_id": id },
+        DiscordID(id) => doc! { "discord_ids": id as i64 },
+        Username(handle) => doc! { "username": handle },
+        SystemID(id) => doc! { "_id": id },
     }).await?)
 }
 
