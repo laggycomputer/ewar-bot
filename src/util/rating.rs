@@ -2,7 +2,7 @@ use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::SystemID;
 use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty};
 use crate::model::{EventNumber, LeagueInfo, Player, StandingEvent, StandingEventInner};
-use crate::util::constants::TRUESKILL_CONFIG;
+use crate::util::constants::{DEFAULT_RATING, TRUESKILL_CONFIG};
 use crate::{BotError, BotVars};
 use bson::doc;
 use futures::StreamExt;
@@ -114,24 +114,29 @@ impl StandingEventInner {
                 reason,
                 delta_deviation: None,
             }),
-            InactivityDecay { victims, delta_deviation } => Some(ChangeStanding {
-                victims,
-                delta_rating: None,
-                delta_deviation: Some(delta_deviation),
-                reason: String::new(),
-            }),
             _ => None
         }
     }
 
     pub(crate) async fn process_effect(&self, mongo: &Database) -> Result<(), BotError> {
         let self_processable = match self {
-            Penalty { .. } | InactivityDecay { .. } => &self.clone()
+            Penalty { .. } => &self.clone()
                 .try_into_generic_variant().expect("1984"),
             _ => self
         };
 
         match self_processable {
+            InactivityDecay { victims, delta_deviation } => {
+                mongo.collection::<Player>("players").update_many(
+                    doc! { "_id": { "$in": victims } },
+                    doc! { "$inc": { "deviation": delta_deviation } },
+                ).await?;
+
+                mongo.collection::<Player>("players").update_many(
+                    doc! { "_id": { "$in": victims } },
+                    doc! { "$min": { "deviation": DEFAULT_RATING.uncertainty } },
+                ).await?;
+            }
             GameEnd(game) => {
                 let mut old_ratings = Vec::with_capacity(game.ranking.len());
                 for party_id in game.ranking.iter() {
