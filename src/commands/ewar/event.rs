@@ -11,7 +11,7 @@ pub(crate) async fn event(ctx: Context<'_>) -> Result<(), BotError> {
     Ok(())
 }
 
-/// Get a reverse-chronological ordered log of every event
+/// Get up to 200 past events
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn log(
     ctx: Context<'_>,
