@@ -1,5 +1,6 @@
 db["league_info"].deleteMany({});
 db["events"].deleteMany({});
+// db["players"].deleteMany({});
 
 db["league_info"].insertOne({
     "first_unreviewed_event_number": 0,
