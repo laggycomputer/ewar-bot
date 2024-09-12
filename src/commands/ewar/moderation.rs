@@ -188,6 +188,7 @@ pub(crate) async fn penalize(
     }).await?;
 
     ctx.reply(format!("ok, this is event number {available_event_number} and will take effect as the approve pointer moves forward")).await?;
+    advance_approve_pointer(&ctx.data(), None).await?;
 
     Ok(())
 }
