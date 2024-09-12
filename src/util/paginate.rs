@@ -56,7 +56,7 @@ impl EmbedLinePaginator {
         };
 
         let sent_handle = ctx.send(CreateReply::default()
-            .embed(base_embed(ctx))
+            .embed(self.embed_for(ctx, self.current_page))
             .reply(true)
             .components(components)).await?;
 
