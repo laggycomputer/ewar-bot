@@ -65,40 +65,44 @@ impl EmbedLinePaginator {
         }
 
         let sent_message = sent_handle.message().await?;
-        while let Some(ixn) = sent_message.await_component_interaction(&ctx.serenity_context().shard)
-            .author_id(ctx.author().id)
-            .timeout(Duration::from_secs(30)).await {
-            match ixn.data.custom_id.as_str() {
-                "embedinator_start" => {
-                    self.current_page = 1;
-                    ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
-                        CreateInteractionResponseMessage::new()
-                            .embed(self.embed_for(ctx, self.current_page)))).await?;
+        loop {
+            if let Some(ixn) = sent_message.await_component_interaction(&ctx.serenity_context().shard)
+                .author_id(ctx.author().id)
+                .timeout(Duration::from_secs(30)).await {
+                match ixn.data.custom_id.as_str() {
+                    "embedinator_start" => {
+                        self.current_page = 1;
+                        ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
+                            CreateInteractionResponseMessage::new()
+                                .embed(self.embed_for(ctx, self.current_page)))).await?;
+                    }
+                    "embedinator_previous" => {
+                        self.current_page -= 1;
+                        if self.current_page == 0 { self.current_page = self.pages.len() as u8 }
+                        ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
+                            CreateInteractionResponseMessage::new()
+                                .embed(self.embed_for(ctx, self.current_page)))).await?;
+                    }
+                    "embedinator_next" => {
+                        self.current_page += 1;
+                        if self.current_page > self.pages.len() as u8 { self.current_page = 1 }
+                        ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
+                            CreateInteractionResponseMessage::new()
+                                .embed(self.embed_for(ctx, self.current_page)))).await?;
+                    }
+                    "embedinator_end" => {
+                        self.current_page = self.pages.len() as u8;
+                        ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
+                            CreateInteractionResponseMessage::new()
+                                .embed(self.embed_for(ctx, self.current_page)))).await?;
+                    }
+                    "embedinator_stop" => break,
+                    _ => {}
                 }
-                "embedinator_previous" => {
-                    self.current_page -= 1;
-                    if self.current_page == 0 { self.current_page = self.pages.len() as u8 }
-                    ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
-                        CreateInteractionResponseMessage::new()
-                            .embed(self.embed_for(ctx, self.current_page)))).await?;
-                }
-                "embedinator_next" => {
-                    self.current_page += 1;
-                    if self.current_page > self.pages.len() as u8 { self.current_page = 1 }
-                    ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
-                        CreateInteractionResponseMessage::new()
-                            .embed(self.embed_for(ctx, self.current_page)))).await?;
-                }
-                "embedinator_end" => {
-                    self.current_page = self.pages.len() as u8;
-                    ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
-                        CreateInteractionResponseMessage::new()
-                            .embed(self.embed_for(ctx, self.current_page)))).await?;
-                }
-                "embedinator_stop" => break,
-                _ => {}
+            } else {
+                break;
             }
-        };
+        }
 
         sent_handle.edit(ctx, CreateReply::default()
             .embed(self.embed_for(ctx, self.current_page))
