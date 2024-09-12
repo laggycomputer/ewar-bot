@@ -1,14 +1,18 @@
-use crate::model::StandingEventInner::GameEnd;
-use crate::model::{Game, GameID, PlayerID, StandingEvent};
-use crate::util::base_embed;
+use crate::commands::ewar::user::try_lookup_user;
+use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
+use crate::model::StandingEventInner::{GameEnd, Penalty};
+use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::checks::{has_system_account, is_league_moderator};
+use crate::util::rating::advance_approve_pointer;
+use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use bson::{doc, Bson};
+use chrono::Utc;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use poise::CreateReply;
-use serenity::all::CreateEmbedFooter;
-use crate::util::rating::advance_approve_pointer;
+use serenity::all::{CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId};
+use std::time::Duration;
 
 /// League moderators: review game for league record; approve or reject
 #[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator
@@ -113,6 +117,77 @@ pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
             .description(event_lines.into_iter().join("\n"))
             .footer(CreateEmbedFooter::new("only showing earliest 10 unreviewed games")))
         .reply(true)).await?;
+
+    Ok(())
+}
+
+/// League moderators: remove someone's true rating with cause
+#[poise::command(prefix_command, slash_command, check = is_league_moderator, check = has_system_account
+)]
+pub(crate) async fn penalize(
+    ctx: Context<'_>,
+    #[description = "ID of player to penalize"] target: PlayerID,
+    #[description = "amount of true rating to take"] amount: f64,
+    #[description = "reason you're doing this"] reason: String,
+) -> Result<(), BotError> {
+    let pg_conn = ctx.data().postgres.get().await?;
+    let victim = match try_lookup_user(&pg_conn, SystemID(target)).await? {
+        None => {
+            ctx.reply(":x: i don't know who that is").await?;
+            return Ok(());
+        }
+        Some(victim) => victim
+    };
+
+    let handle = ctx.send(CreateReply::default()
+        .content(format!("**you are penalizing user {} {amount} true rating for {}**\nplease confirm again, you have ten seconds",
+                         victim.short_summary(), remove_markdown(&*reason)))
+        .components(vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("penalize_confirm")
+                    .emoji(GuildId::new(1278507827442221109u64.try_into().unwrap())
+                        .emoji(ctx.http(), EmojiId::new(1283642353395044413u64.try_into().unwrap())).await?)
+            ])
+        ])
+        .reply(true)
+    ).await?;
+
+    match handle.message().await?.await_component_interaction(&ctx.serenity_context().shard)
+        .author_id(ctx.author().id)
+        .custom_ids(vec![String::from("penalize_confirm")])
+        .timeout(Duration::from_secs(10)).await {
+        None => {
+            ctx.reply("ok, nevermind then").await?;
+            return Ok(());
+        }
+        Some(ixn) => ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge).await?
+    };
+
+    let responsible_moderator = try_lookup_user(&pg_conn, DiscordID(ctx.author().id.get())).await?.unwrap();
+
+    let LeagueInfo { available_event_number, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one_and_update(
+            doc! {},
+            doc! { "$inc": doc! { "available_event_number": 1, } })
+        .await?
+        .expect("league_info struct missing");
+
+    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
+        _id: available_event_number,
+        approval_status: Some(ApprovalStatus {
+            approved: true,
+            reviewer: Some(responsible_moderator.player_id),
+        }),
+        inner: Penalty {
+            victims: vec![target],
+            delta_rating: -amount,
+            reason,
+        },
+        when: Utc::now(),
+    }).await?;
+
+    ctx.reply(format!("ok, this is event number {available_event_number} and will take effect as the approve pointer moves forward")).await?;
 
     Ok(())
 }
