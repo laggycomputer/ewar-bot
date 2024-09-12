@@ -4,9 +4,9 @@ use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub(crate) struct AggregatePlayer {
     pub(crate) lb_rating: f64,
     pub(crate) inner: Player,
