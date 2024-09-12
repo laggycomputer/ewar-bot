@@ -84,7 +84,7 @@ impl EmbedLinePaginator {
                 }
                 "embedinator_next" => {
                     self.current_page += 1;
-                    if self.current_page >= self.pages.len() as u8 { self.current_page = 0 }
+                    if self.current_page > self.pages.len() as u8 { self.current_page = 1 }
                     ixn.create_response(ctx.http(), CreateInteractionResponse::UpdateMessage(
                         CreateInteractionResponseMessage::new()
                             .embed(self.embed_for(ctx, self.current_page)))).await?;
