@@ -49,10 +49,14 @@ pub(crate) async fn review(
 
     let StandingEvent { _id: event_number, when, .. } = ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
         doc! { "_id": corresponding_event._id },
-        doc! { "$set": { "approval_status": {
+        doc! {
+            "$set": {
+                "approval_status": {
                     "approved": approved,
                     "reviewer": Some(player._id),
-                } } })
+                }
+            }
+        })
         .await?
         .expect("standing event magically disappeared");
 
