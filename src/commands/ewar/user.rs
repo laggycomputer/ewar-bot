@@ -1,6 +1,6 @@
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
 use crate::model::StandingEventInner::{InactivityDecay, JoinLeague};
-use crate::model::{ApprovalStatus, LeagueInfo, Player, PlayerID, StandingEvent};
+use crate::model::{ApprovalStatus, GameID, LeagueInfo, Player, PlayerID, StandingEvent};
 use crate::util::constants::DEFAULT_RATING;
 use crate::util::rating::RatingExtra;
 use crate::util::{base_embed, remove_markdown};
@@ -12,6 +12,7 @@ use itertools::Itertools;
 use mongodb::Database;
 use poise::CreateReply;
 use regex::RegexBuilder;
+use serde::Deserialize;
 use serenity::all::{Mentionable, User, UserId};
 use skillratings::trueskill::TrueSkillRating;
 use timeago::TimeUnit::Minutes;
@@ -30,6 +31,12 @@ pub(crate) async fn try_lookup_player(mongo: &Database, how: UserLookupType<'_>)
     }).await?)
 }
 
+#[derive(Deserialize)]
+#[derive(Debug)]
+struct WinLossAggregate {
+    wins: GameID,
+    losses: GameID,
+}
 /// shared postlude to every lookup method; just show the user
 async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<(), BotError> {
     let events = ctx.data().mongo.collection::<StandingEvent>("events")
@@ -60,6 +67,42 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
             }
         }
     }
+
+    let win_loss = ctx.data().mongo.collection::<StandingEvent>("events").aggregate(vec![
+        doc! {"$match": {"inner.GameEnd.ranking": looked_up._id}},
+        doc! {"$replaceRoot": {"newRoot": "$inner.GameEnd"}},
+        doc! {
+            "$group": {
+                "_id": {
+                    "$cond": {
+                        "if": {"$eq": [{"$arrayElemAt": ["$ranking", 0]}, looked_up._id]},
+                        "then": "wins",
+                        "else": "losses",
+                    }
+                },
+                "num": {"$sum": 1}
+            }
+        },
+        doc! {
+            "$group": {
+                "_id": null,
+                "wins": {
+                    "$sum": {"$cond": [{"$eq": ["$_id", "wins"]}, "$num", 0]}
+                },
+                "losses": {
+                    "$sum": {"$cond": [{"$eq": ["$_id", "losses"]}, "$num", 0]}
+                }
+            }
+        },
+        doc! {
+            "$project": {
+                "_id": 0,
+                "wins": "$wins",
+                "losses": "$losses",
+            }
+        }
+    ]).with_type::<WinLossAggregate>().await?
+        .try_next().await?.unwrap_or(WinLossAggregate { wins: 0, losses: 0 });
 
     let mut assoc_accounts = looked_up.discord_ids.iter()
         .map(|id| UserId::try_from(*id).unwrap().mention())
@@ -93,6 +136,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
                 .unwrap_or("never".to_string()),
                    true)
             .field("associated discord accounts", assoc_accounts, true)
+            .field("record", format!("{} - {}", win_loss.wins, win_loss.losses), true)
             .description(format!("recent events:\n\n{}", event_lines.into_iter().join("\n"))))).await?;
     Ok(())
 }
