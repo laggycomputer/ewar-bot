@@ -246,7 +246,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         last_played: None,
         discord_ids: vec![ctx.author().id.get()],
     };
-    ctx.data().mongo.collection::<Player>("events").insert_one(&new_player).await?;
+    ctx.data().mongo.collection::<Player>("players").insert_one(&new_player).await?;
 
     // add league join event
     ctx.data().mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
