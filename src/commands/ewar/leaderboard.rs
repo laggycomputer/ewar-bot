@@ -3,7 +3,6 @@ use crate::commands::ewar::user::UserLookupType::SystemID;
 use crate::util::paginate::EmbedLinePaginator;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
-use itertools::Itertools;
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -41,7 +40,7 @@ ORDER BY lb_rating DESC;",
         let mut line = format!("{}: {}", more_data.short_summary(), more_data.rating.format_rating());
         line = if more_data.rating.is_provisional() { format!("~~{}~~", line) } else { line };
 
-        lb_lines.push(format!("{}. {}", ind + 1, line));
+        lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
     }
 
     EmbedLinePaginator::new(lb_lines)

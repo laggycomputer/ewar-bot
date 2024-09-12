@@ -11,7 +11,7 @@ pub(crate) struct EmbedLinePaginator {
 }
 
 impl EmbedLinePaginator {
-    pub(crate) fn new(lines: Vec<String>) -> EmbedLinePaginator {
+    pub(crate) fn new(lines: Vec<Box<str>>) -> EmbedLinePaginator {
         let mut chunks = Vec::new();
         chunks.push(String::new());
         let mut working_chunk = &mut chunks[0];
