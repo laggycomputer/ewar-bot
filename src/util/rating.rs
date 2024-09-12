@@ -143,7 +143,7 @@ impl StandingEventInner {
                 for (party_id, new_rating) in game.ranking.iter().zip(new_ratings.into_iter()) {
                     mongo.collection::<Player>("players").update_one(
                         doc! { "_id" : *party_id },
-                        doc! { "rating": new_rating.rating, "deviation": new_rating.uncertainty },
+                        doc! {"$set": {"rating": new_rating.rating, "deviation": new_rating.uncertainty}},
                     ).await?;
                 }
             }
@@ -165,7 +165,7 @@ impl StandingEventInner {
             JoinLeague { victims, initial_rating, initial_deviation } => {
                 mongo.collection::<Player>("players").update_many(
                     doc! { "_id": { "$in": victims } },
-                    doc! { "set": { "rating": initial_rating, "deviation": initial_deviation } },
+                    doc! { "$set": { "rating": initial_rating, "deviation": initial_deviation } },
                 ).await?;
             }
             _ => return Err("don't know how to handle this event type yet".into())
