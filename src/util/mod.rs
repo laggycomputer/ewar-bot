@@ -95,7 +95,7 @@ impl StandingEvent {
                     looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("penalized user not found"));
                 }
 
-                format!("{} penalized {:+.2} rating for {reason}",
+                format!("{} penalized {} rating for {reason}",
                         looked_up.into_iter().map(|u| u.short_summary()).join(", "),
                         -delta_rating)
             }
