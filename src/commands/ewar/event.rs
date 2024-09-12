@@ -19,8 +19,6 @@ pub(crate) async fn log(
 ) -> Result<(), BotError> {
     ctx.defer().await?;
 
-    let pg_conn = ctx.data().postgres.get().await?;
-
     let filter_doc = if before.is_some() {
         doc! { "_id": doc! { "$lte": before.unwrap() } }
     } else {
@@ -33,7 +31,7 @@ pub(crate) async fn log(
         .sort(doc! { "_id": -1 })
         .limit(200)
         .await?;
-    while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&pg_conn).await?) }
+    while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&ctx.data().mongo).await?) }
 
     EmbedLinePaginator::new(lines)
         .run(ctx).await?;

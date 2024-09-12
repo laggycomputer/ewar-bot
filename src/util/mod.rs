@@ -3,13 +3,14 @@ pub(crate) mod rating;
 pub(crate) mod constants;
 pub(crate) mod paginate;
 
-use crate::commands::ewar::user::try_lookup_user;
+use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::SystemID;
-use crate::model::{ApprovalStatus, PlayerID, SqlUser, StandingEvent, StandingEventInner};
+use crate::model::{ApprovalStatus, Player, StandingEvent, StandingEventInner};
 use crate::{BotError, Context};
 use chrono::Utc;
 use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};
 use itertools::Itertools;
+use mongodb::Database;
 use serenity::all::{CreateEmbed, CreateEmbedAuthor, Mentionable, Permissions};
 use serenity::all::{User, UserId};
 use timeago::TimeUnit::Seconds;
@@ -33,27 +34,27 @@ pub(crate) fn base_embed(ctx: Context<'_>) -> CreateEmbed {
             User::from(ctx.serenity_context().cache.current_user().clone())))
 }
 
-pub(crate) fn short_user_reference(handle: &str, id: PlayerID) -> Box<str> {
-    format!("{}, ID {id}", remove_markdown(handle)).to_owned().into_boxed_str()
-}
-
-impl SqlUser {
+impl Player {
     pub(crate) fn short_summary(&self) -> Box<str> {
         match self.discord_ids.get(0) {
-            None => self.handle.clone(),
-            Some(discord_id) => discord_id.mention().to_string().into_boxed_str()
-        }
+            None => self.username.clone(),
+            Some(discord_id) => UserId::try_from(*discord_id).unwrap().mention().to_string(),
+        }.into_boxed_str()
+    }
+
+    pub(crate) fn reference_no_discord(&self) -> Box<str> {
+        format!("{}, ID {}", remove_markdown(&*self.username), self._id).to_owned().into_boxed_str()
     }
 }
 
 
 impl StandingEvent {
-    pub(crate) async fn short_summary(&self, pg_conn: &deadpool_postgres::Object) -> Result<Box<str>, BotError> {
+    pub(crate) async fn short_summary(&self, mongo: &Database) -> Result<Box<str>, BotError> {
         let summary = match &self.inner {
             StandingEventInner::GameEnd(game) => {
                 let mut looked_up = Vec::with_capacity(game.ranking.len());
                 for player_id in game.ranking.iter() {
-                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("user in game not found"));
+                    looked_up.push(try_lookup_player(mongo, SystemID(*player_id)).await?.expect("user in game not found"));
                 }
 
                 let placement_string = {
@@ -82,7 +83,7 @@ impl StandingEvent {
             StandingEventInner::JoinLeague { victims, initial_rating, initial_deviation } => {
                 let mut looked_up = Vec::with_capacity(victims.len());
                 for player_id in victims.iter() {
-                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("user joined to league not found"));
+                    looked_up.push(try_lookup_player(mongo, SystemID(*player_id)).await?.expect("user joined to league not found"));
                 }
 
                 format!(
@@ -92,7 +93,7 @@ impl StandingEvent {
             StandingEventInner::Penalty { victims, delta_rating, reason } => {
                 let mut looked_up = Vec::with_capacity(victims.len());
                 for player_id in victims.iter() {
-                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("penalized user not found"));
+                    looked_up.push(try_lookup_player(mongo, SystemID(*player_id)).await?.expect("penalized user not found"));
                 }
 
                 format!("{} penalized {} rating for {reason}",
@@ -102,7 +103,7 @@ impl StandingEvent {
             StandingEventInner::InactivityDecay { victims, delta_deviation } => {
                 let mut looked_up = Vec::with_capacity(victims.len());
                 for player_id in victims.iter() {
-                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("penalized user not found"));
+                    looked_up.push(try_lookup_player(mongo, SystemID(*player_id)).await?.expect("penalized user not found"));
                 }
 
                 format!("{} gain {} deviation due to 1 week of inactivity",
@@ -118,12 +119,12 @@ impl StandingEvent {
 }
 
 impl ApprovalStatus {
-    pub(crate) async fn short_summary(&self, pg_conn: &deadpool_postgres::Object) -> Result<Box<str>, BotError> {
+    pub(crate) async fn short_summary(&self, mongo: &Database) -> Result<Box<str>, BotError> {
         Ok(format!("{} by {}", match self.approved {
             true => "approved",
             false => "rejected"
         }, match self.reviewer {
-            Some(reviewer_id) => try_lookup_user(pg_conn, SystemID(reviewer_id))
+            Some(reviewer_id) => try_lookup_player(mongo, SystemID(reviewer_id))
                 .await?
                 .expect("reviewer's ID not valid")
                 .short_summary(),

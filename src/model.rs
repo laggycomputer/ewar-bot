@@ -1,19 +1,18 @@
 use bson::doc;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use serenity::all::UserId;
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
 pub(crate) type EventNumber = u32;
 pub(crate) type GameID = i64;
 pub(crate) type PlayerID = i32;
-pub(crate) type DateTimeType = chrono::DateTime<Utc>;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LeagueInfo {
     pub(crate) first_unreviewed_event_number: EventNumber,
     pub(crate) available_game_id: GameID,
     pub(crate) available_event_number: EventNumber,
+    pub(crate) available_player_id: PlayerID,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,7 +51,23 @@ pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) inner: StandingEventInner,
-    pub(crate) when: DateTimeType,
+    pub(crate) when: chrono::DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct Player {
+    pub(crate) _id: PlayerID,
+    pub(crate) username: String,
+    pub(crate) rating: f64,
+    pub(crate) deviation: f64,
+    pub(crate) last_played: Option<chrono::DateTime<Utc>>,
+    pub(crate) discord_ids: Vec<u64>,
+}
+
+impl Player {
+    pub(crate) fn rating_struct(&self) -> TrueSkillRating {
+        TrueSkillRating { rating: self.rating, uncertainty: self.deviation }
+    }
 }
 
 // precompute rating at certain points in the timeline
@@ -60,12 +75,4 @@ struct Checkpoint {
     after: EventNumber,
     // standings changed since last checkpoint
     updates: HashMap<PlayerID, TrueSkillRating>,
-}
-
-pub(crate) struct SqlUser {
-    pub(crate) player_id: PlayerID,
-    pub(crate) handle: Box<str>,
-    pub(crate) discord_ids: Vec<UserId>,
-    pub(crate) rating: TrueSkillRating,
-    pub(crate) last_played: Option<DateTimeType>,
 }

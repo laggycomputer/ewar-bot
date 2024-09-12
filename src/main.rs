@@ -16,13 +16,10 @@ use std::collections::HashSet;
 use std::default::Default;
 use std::fs;
 use std::path::PathBuf;
-use std::str::FromStr;
-use tokio_postgres::NoTls;
 use yaml_rust2::YamlLoader;
 
 struct BotVars {
     mongo: mongodb::Database,
-    postgres: deadpool_postgres::Pool,
     update_ratings_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>,
     league_moderators: HashSet<UserId>,
 }
@@ -60,8 +57,6 @@ async fn main() {
     let mongo_uri = config_doc["creds"]["mongo"]["uri"].as_str().expect("bad mongo uri").to_string();
     let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad mongo db").to_string();
 
-    let postgres_uri = config_doc["creds"]["postgres"].as_str().expect("bad postgres uri").to_string();
-
     let moderator_discord_ids =
         config_doc["league"]["moderator_discords"]
             .as_vec().iter()
@@ -78,7 +73,6 @@ async fn main() {
             commands: vec![
                 meta::ping(),
                 meta::git(),
-                maint::sql(),
                 maint::advance_pointer(),
                 maint::fsck(),
                 maint::force_reprocess(),
@@ -119,17 +113,8 @@ async fn main() {
                 mongo.run_command(doc! { "ping": 1 }).await?;
                 println!("mongo ok");
 
-                let pg_config = tokio_postgres::Config::from_str(&*postgres_uri)?;
-                let mgr_config = deadpool_postgres::ManagerConfig {
-                    recycling_method: deadpool_postgres::RecyclingMethod::Fast,
-                };
-                let mgr = deadpool_postgres::Manager::from_config(pg_config, NoTls, mgr_config);
-                let pg_pool = deadpool_postgres::Pool::builder(mgr).max_size(16).build().unwrap();
-                println!("postgres ok");
-
                 Ok(BotVars {
                     mongo,
-                    postgres: pg_pool,
                     update_ratings_lock: Default::default(),
                     league_moderators: moderator_discord_ids.into_iter().collect(),
                 })

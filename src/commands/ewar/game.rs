@@ -1,24 +1,22 @@
-use crate::commands::ewar::user::try_lookup_user;
-use crate::commands::ewar::user::UserLookupType::SystemID;
+use crate::commands::ewar::user::try_lookup_player;
+use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
 use crate::ewar::game::BadPlacementType::*;
-use crate::ewar::user::UserLookupType;
-use crate::model::ApprovalStatus;
 use crate::model::StandingEventInner::GameEnd;
-use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
+use crate::model::{ApprovalStatus, Player};
+use crate::model::{Game, GameID, LeagueInfo, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
 use crate::util::paginate::EmbedLinePaginator;
 use crate::util::rating::RatingExtra;
 use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
-use crate::util::short_user_reference;
 use crate::{BotError, Context};
 use bson::doc;
 use chrono::{TimeDelta, Utc};
 use futures::TryStreamExt;
 use itertools::Itertools;
+use mongodb::Database;
 use poise::CreateReply;
-use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
-use skillratings::trueskill::TrueSkillRating;
+use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User, UserId};
 use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
@@ -26,7 +24,7 @@ use timeago::TimeUnit::Seconds;
 
 enum BadPlacementType {
     DuplicateUser,
-    UserNotFound { offending: User },
+    UserNotFound { offending: UserId },
 }
 
 impl BadPlacementType {
@@ -44,31 +42,20 @@ impl BadPlacementType {
     }
 }
 
-/// placements as discord user to (system username, system ID) pair
-async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_postgres::Object) -> Result<Result<Vec<(String, PlayerID, TrueSkillRating)>, BadPlacementType>, BotError> {
+async fn lookup_placement(mongo: &Database, placement: &Vec<User>) -> Result<Result<Vec<Player>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
         return Ok(Err(DuplicateUser));
     }
 
-    let mut placement_system_users: Vec<(String, PlayerID, TrueSkillRating)> = Vec::with_capacity(placement.len());
-    for user in placement.clone().into_iter() {
-        match pg_conn.query_opt("SELECT player_name, player_discord.player_id, rating, deviation \
-        FROM players LEFT JOIN player_discord ON players.player_id = player_discord.player_id \
-        WHERE player_discord.discord_user_id = $1::BIGINT;", &[&(user.id.get() as i64)]).await? {
-            None => {
-                return Ok(Err(UserNotFound { offending: user }))
-            }
-            Some(row) => {
-                placement_system_users.push((
-                    row.get("player_name"),
-                    row.get("player_id"),
-                    TrueSkillRating::from_row(&row),
-                ));
-            }
-        }
-    };
+    let mut ret = Vec::with_capacity(placement.len());
+    for user in placement {
+        ret.push(match try_lookup_player(mongo, DiscordID(user.id.get())).await? {
+            None => { return Ok(Err(UserNotFound { offending: user.id })) }
+            Some(player) => player
+        });
+    }
 
-    Ok(Ok(placement_system_users))
+    Ok(Ok(ret))
 }
 
 #[poise::command(prefix_command, slash_command, subcommands("post", "whatif", "query", "log"))]
@@ -124,8 +111,7 @@ pub(crate) async fn post(
     ].into_iter().filter_map(identity).collect_vec();
 
     // part 1: validate proposed game
-    let pg_conn = ctx.data().postgres.get().await?;
-    let poster_info = try_lookup_user(&pg_conn, UserLookupType::DiscordID(ctx.author().id.get())).await?
+    let poster_info = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?
         .expect("user disappeared after check");
 
     let poster_not_moderator = !_is_league_moderator(ctx).await?;
@@ -134,7 +120,7 @@ pub(crate) async fn post(
         return Ok(());
     }
 
-    let placement_system_users = match placement_discord_to_system(&placement_discord, &pg_conn).await? {
+    let placement_players = match lookup_placement(&ctx.data().mongo, &placement_discord).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());
@@ -145,9 +131,9 @@ pub(crate) async fn post(
     // part 2: submitter must confirm
     let emb_desc = format!(
         "you are logging a game with the following result:\n{}\n{}",
-        placement_discord.iter().zip(placement_system_users.iter()).enumerate()
-            .map(|(index, (discord_user, (handle, id, _)))| format!(
-                "{}. {} ({})", index + 1, discord_user.mention(), short_user_reference(handle, *id))
+        placement_players.iter().enumerate()
+            .map(|(index, player)| format!(
+                "{}. {} ({})", index + 1, player.short_summary(), player.reference_no_discord())
             )
             .join("\n"),
         if !poster_not_moderator {
@@ -267,7 +253,7 @@ pub(crate) async fn post(
         .await?
         .expect("league_info struct missing");
 
-    let participant_system_ids = placement_system_users.iter().map(|(_, player_id, _)| *player_id).collect_vec();
+    let participant_system_ids = placement_players.iter().map(|player| player._id).collect_vec();
 
     let signed_game = Game {
         game_id: available_game_id,
@@ -278,10 +264,7 @@ pub(crate) async fn post(
     let event = StandingEvent {
         _id: available_event_number,
         approval_status: if poster_not_moderator { None } else {
-            Some(ApprovalStatus {
-                approved: true,
-                reviewer: Some(poster_info.player_id),
-            })
+            Some(ApprovalStatus { approved: true, reviewer: Some(poster_info._id) })
         },
         inner: GameEnd(signed_game),
         when: submitted_time,
@@ -330,8 +313,7 @@ pub(crate) async fn whatif(
         user7, user8, user9, user10, user11,
     ].into_iter().filter_map(identity).collect_vec();
 
-    let conn = ctx.data().postgres.get().await?;
-    let placement_system_users = match placement_discord_to_system(&placement_discord, &conn).await? {
+    let placement_players = match lookup_placement(&ctx.data().mongo, &placement_discord).await? {
         Err(reason) => {
             ctx.send(reason.create_error_message(ctx)).await?;
             return Ok(());
@@ -339,8 +321,8 @@ pub(crate) async fn whatif(
         Ok(ret) => ret
     };
 
-    let placement_ratings = placement_system_users.iter()
-        .map(|(_, _, rating)| *rating)
+    let placement_ratings = placement_players.iter()
+        .map(|player| player.rating_struct())
         .collect_vec();
 
     let new_ratings = game_affect_ratings(&placement_ratings);
@@ -350,7 +332,7 @@ pub(crate) async fn whatif(
 
     let mut leaderboard = String::new();
     for index in 0..placement_discord.len() {
-        let old_rating = placement_system_users[index].2;
+        let old_rating = placement_players[index].rating_struct();
         let new_rating = new_ratings[index];
         let leaderboard_delta = new_rating.leaderboard_rating() - old_rating.leaderboard_rating();
 
@@ -363,7 +345,7 @@ pub(crate) async fn whatif(
             new_rating.format_rating(),
             leaderboard_delta,
             placement_discord[index].mention(),
-            short_user_reference(&placement_system_users[index].0, placement_system_users[index].1),
+            placement_players[index].reference_no_discord(),
             win_chances[index] * 100.0,
         ))
     }
@@ -380,8 +362,6 @@ pub(crate) async fn whatif(
 /// Get a game by ID
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"] game_id: GameID) -> Result<(), BotError> {
-    let pg_conn = ctx.data().postgres.get().await?;
-
     let event = match ctx.data().mongo
         .collection::<StandingEvent>("events")
         .find_one(doc! { "inner.GameEnd.game_id": game_id }).await? {
@@ -396,7 +376,7 @@ pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"]
 
     let mut users_info = Vec::with_capacity(game.ranking.len());
     for player_id in game.ranking {
-        users_info.push(try_lookup_user(&pg_conn, SystemID(player_id)).await?.expect("user in game DNE"));
+        users_info.push(try_lookup_player(&ctx.data().mongo, SystemID(player_id)).await?.expect("user in game DNE"));
     }
 
     let mut time_formatter = timeago::Formatter::new();
@@ -420,7 +400,8 @@ pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"]
             ), true)
             .field("reviewer", match event.approval_status {
                 None => String::from("not approved yet"),
-                Some(approval_status) => String::from(approval_status.short_summary(&pg_conn).await?),
+                Some(approval_status) => String::from(
+                    approval_status.short_summary(&ctx.data().mongo).await?),
             }, true)
             .field("length (pre-overtime)", format!(
                 "{:02}:{:02}", chrono_game_length.num_minutes(), chrono_game_length.num_seconds() % 60
@@ -440,8 +421,6 @@ pub(crate) async fn log(
 ) -> Result<(), BotError> {
     ctx.defer().await?;
 
-    let pg_conn = ctx.data().postgres.get().await?;
-
     let filter_doc = if before.is_some() {
         doc! { "inner.GameEnd": doc! { "$exists": true },
             "inner.GameEnd.game_id": doc! { "$lte": before.unwrap() }
@@ -456,7 +435,9 @@ pub(crate) async fn log(
         .sort(doc! { "_id": -1 })
         .limit(200)
         .await?;
-    while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&pg_conn).await?) }
+    while let Some(event) = cur.try_next().await? {
+        lines.push(event.short_summary(&ctx.data().mongo).await?)
+    }
 
     EmbedLinePaginator::new(lines)
         .run(ctx).await?;

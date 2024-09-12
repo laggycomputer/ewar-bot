@@ -1,4 +1,4 @@
-use crate::commands::ewar::user::{try_lookup_user, UserLookupType};
+use crate::commands::ewar::user::{try_lookup_player, UserLookupType};
 use crate::{BotError, Context};
 use poise::CreateReply;
 
@@ -19,8 +19,7 @@ pub(crate) async fn is_league_moderator(ctx: Context<'_>) -> Result<bool, BotErr
 }
 
 pub(crate) async fn has_system_account(ctx: Context<'_>) -> Result<bool, BotError> {
-    let conn = ctx.data().postgres.get().await?;
-    let cond = try_lookup_user(&conn, UserLookupType::DiscordID(ctx.author().id.get())).await?.is_some();
+    let cond = try_lookup_player(&ctx.data().mongo, UserLookupType::DiscordID(ctx.author().id.get())).await?.is_some();
 
     if !cond {
         ctx.send(CreateReply::default()

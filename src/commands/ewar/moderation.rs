@@ -1,4 +1,4 @@
-use crate::commands::ewar::user::try_lookup_user;
+use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
 use crate::model::StandingEventInner::{GameEnd, Penalty};
 use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
@@ -45,35 +45,21 @@ pub(crate) async fn review(
         return Ok(());
     }
 
-    // find the reviewer's system ID
-    let pg_conn = ctx.data().postgres.get().await?;
+    let player = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?.unwrap();
 
-    let StandingEvent { _id: event_number, when, .. } = match pg_conn.query_opt(
-        "SELECT player_id FROM player_discord WHERE discord_user_id = $1;",
-        &[&(ctx.author().id.get() as i64)]).await? {
-        None => {
-            ctx.send(CreateReply::default()
-                .content(":x: do you have an account on the system?")
-                .ephemeral(true)).await?;
-            return Ok(());
-        }
-        Some(row) => {
-            let reviewer_id: PlayerID = row.get("player_id");
-
-            ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
-                doc! { "_id": corresponding_event._id },
-                doc! { "$set": doc! { "approval_status": doc! {
+    let StandingEvent { _id: event_number, when, .. } = ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
+        doc! { "_id": corresponding_event._id },
+        doc! { "$set": doc! { "approval_status": doc! {
                     "approved": approved,
-                    "reviewer": Some(reviewer_id),
+                    "reviewer": Some(player._id),
                 } } })
-                .await?
-                .expect("standing event magically disappeared")
-        }
-    };
+        .await?
+        .expect("standing event magically disappeared");
 
     if approved {
         // set everyone's last played
-        pg_conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &ranking]).await?;
+        // TODO fix for mongo
+        // pg_conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &ranking]).await?;
 
         ctx.send(CreateReply::default()
             .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
@@ -90,8 +76,6 @@ pub(crate) async fn review(
 /// League moderators: check for unreviewed games
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
 pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
-    let pg_conn = ctx.data().postgres.get().await?;
-
     let find = ctx.data().mongo.collection::<StandingEvent>("events")
         .find(doc! {
             "inner.GameEnd": doc! { "$exists": true },
@@ -109,7 +93,7 @@ pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
 
     let mut event_lines = Vec::with_capacity(events.len());
     for evt in events {
-        event_lines.push(format!("#{} - {}", evt._id, evt.short_summary(&pg_conn).await?));
+        event_lines.push(format!("#{} - {}", evt._id, evt.short_summary(&ctx.data().mongo).await?));
     }
 
     ctx.send(CreateReply::default()
@@ -130,8 +114,7 @@ pub(crate) async fn penalize(
     #[description = "amount of true rating to take"] amount: f64,
     #[description = "reason you're doing this"] reason: String,
 ) -> Result<(), BotError> {
-    let pg_conn = ctx.data().postgres.get().await?;
-    let victim = match try_lookup_user(&pg_conn, SystemID(target)).await? {
+    let victim = match try_lookup_player(&ctx.data().mongo, SystemID(target)).await? {
         None => {
             ctx.reply(":x: i don't know who that is").await?;
             return Ok(());
@@ -163,7 +146,7 @@ pub(crate) async fn penalize(
         Some(ixn) => ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge).await?
     };
 
-    let responsible_moderator = try_lookup_user(&pg_conn, DiscordID(ctx.author().id.get())).await?.unwrap();
+    let responsible_moderator = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?.unwrap();
 
     let LeagueInfo { available_event_number, .. } = ctx.data().mongo
         .collection::<LeagueInfo>("league_info")
@@ -177,7 +160,7 @@ pub(crate) async fn penalize(
         _id: available_event_number,
         approval_status: Some(ApprovalStatus {
             approved: true,
-            reviewer: Some(responsible_moderator.player_id),
+            reviewer: Some(responsible_moderator._id),
         }),
         inner: Penalty {
             victims: vec![target],
