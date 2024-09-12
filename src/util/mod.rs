@@ -1,6 +1,7 @@
 pub(crate) mod checks;
 pub(crate) mod rating;
 pub(crate) mod constants;
+pub(crate) mod paginate;
 
 use crate::commands::ewar::user::try_lookup_user;
 use crate::commands::ewar::user::UserLookupType::SystemID;

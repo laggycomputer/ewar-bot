@@ -1,10 +1,9 @@
 use crate::commands::ewar::user::try_lookup_user;
 use crate::commands::ewar::user::UserLookupType::SystemID;
-use crate::util::base_embed;
+use crate::util::paginate::EmbedLinePaginator;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use itertools::Itertools;
-use poise::CreateReply;
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -45,10 +44,8 @@ ORDER BY lb_rating DESC;",
         lb_lines.push(format!("{}. {}", ind + 1, line));
     }
 
-    ctx.send(CreateReply::default()
-        .embed(base_embed(ctx)
-            .description(lb_lines.into_iter().join("\n")))
-        .reply(true)).await?;
+    EmbedLinePaginator::new(lb_lines)
+        .run(ctx).await?;
 
     Ok(())
 }
