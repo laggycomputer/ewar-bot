@@ -98,8 +98,8 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
 }
 
 /// Look up a user in the database
-#[poise::command(prefix_command, slash_command, subcommands("user", "name", "id"))]
-pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
+#[poise::command(prefix_command, slash_command, subcommands("by_discord", "by_username", "by_id"))]
+pub(crate) async fn user(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.reply("base command is noop, try a subcommand").await?;
 
     Ok(())
@@ -107,7 +107,7 @@ pub(crate) async fn lookup(ctx: Context<'_>) -> Result<(), BotError> {
 
 /// defaults to you; look up a player by discord user
 #[poise::command(prefix_command, slash_command)]
-async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
+async fn by_discord(ctx: Context<'_>, #[description = "Discord user to lookup by"] user: Option<User>) -> Result<(), BotError> {
     let user = user.as_ref().unwrap_or(ctx.author());
 
     match try_lookup_player(&ctx.data().mongo, UserLookupType::DiscordID(user.id.into())).await? {
@@ -124,8 +124,8 @@ async fn user(ctx: Context<'_>, #[description = "Discord user to lookup by"] use
 
 /// look up a player by handle
 #[poise::command(prefix_command, slash_command)]
-async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
-    match try_lookup_player(&ctx.data().mongo, UserLookupType::Username(handle.as_str())).await? {
+async fn by_username(ctx: Context<'_>, #[description = "System handle to lookup by"] handle: String) -> Result<(), BotError> {
+    match try_lookup_player(&ctx.data().mongo, Username(handle.as_str())).await? {
         None => {
             ctx.reply("could not find player by that handle").await?;
         }
@@ -139,7 +139,7 @@ async fn name(ctx: Context<'_>, #[description = "System handle to lookup by"] ha
 
 /// look up a player by database ID
 #[poise::command(prefix_command, slash_command)]
-async fn id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: PlayerID) -> Result<(), BotError> {
+async fn by_id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: PlayerID) -> Result<(), BotError> {
     match try_lookup_player(&ctx.data().mongo, UserLookupType::SystemID(id)).await? {
         None => {
             ctx.reply("could not find player by that ID").await?;

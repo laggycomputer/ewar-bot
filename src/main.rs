@@ -130,7 +130,7 @@ async fn main() {
                 maint::fsck(),
                 maint::force_reprocess(),
                 ewar::event::event(),
-                ewar::user::lookup(),
+                ewar::user::user(),
                 ewar::user::register(),
                 ewar::game::game(),
                 ewar::moderation::review(),
