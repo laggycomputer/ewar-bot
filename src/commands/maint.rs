@@ -1,5 +1,4 @@
-use std::cmp::min;
-use crate::model::{EventNumber, LeagueInfo, Player, StandingEvent};
+use crate::model::{EventNumber, Game, LeagueInfo, Player, StandingEvent};
 use crate::util::checks::is_league_moderator;
 use crate::util::rating::advance_approve_pointer;
 use crate::{inactivity_decay_inner, BotError, Context};
@@ -7,7 +6,9 @@ use bson::Bson::Int64;
 use bson::{doc, Bson, Document};
 use futures::TryStreamExt;
 use serde::de::DeserializeOwned;
+use std::cmp::min;
 use std::error::Error;
+use crate::model::StandingEventInner::GameEnd;
 
 /// attempt to advance the approve pointer (be careful)
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
@@ -65,6 +66,7 @@ pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] re
 
     let mut first_missing_event = 0;
     let mut first_unreviewed_event = 0;
+    let mut first_missing_game = 0;
 
     let mut events = ctx.data().mongo.collection::<Document>("events").find(doc! {}).sort(doc! {"_id": 1}).await?;
     while let Some(out) = events.try_next().await? {
@@ -78,10 +80,21 @@ pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] re
                     first_missing_event += 1;
                     match evt.approval_status {
                         None => first_unreviewed_event = evt._id,
-                        Some(_) => first_unreviewed_event = if first_unreviewed_event == evt._id {evt._id + 1} else {first_unreviewed_event},
+                        Some(_) => first_unreviewed_event = if first_unreviewed_event == evt._id { evt._id + 1 } else { first_unreviewed_event },
                     }
 
-                    continue;
+                    if let GameEnd(Game { game_id, .. }) = evt.inner {
+                        if game_id != first_missing_game {
+                            let out = format!("game {first_missing_game} is missing");
+                            first_missing_game = game_id + 1;
+                            out
+                        } else {
+                            first_missing_game += 1;
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
                 }
             }
             Err(e) => {
@@ -113,15 +126,21 @@ pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] re
         had_err = true;
     }
 
+    if league_info.available_game_id != first_missing_game {
+        ctx.reply(format!("league_info available game number {} != actual {first_missing_game}, INSPECT AND FIX", league_info.available_game_id)).await?;
+        had_err = true;
+    }
+
     if !had_err {
         ctx.reply("all ok").await?;
     } else {
         if repair.unwrap_or(false) {
             let mut fix_league_info = LeagueInfo::from(league_info);
             fix_league_info.available_event_number = min(fix_league_info.available_event_number, first_missing_event);
+            fix_league_info.available_game_id = min(fix_league_info.available_game_id, first_missing_game);
             fix_league_info.first_unreviewed_event_number = first_unreviewed_event;
             ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_replace(doc! {}, fix_league_info).await?;
-            ctx.reply("fixing approve pointer, trimming free event number as necessary").await?;
+            ctx.reply("fixing approve pointer, trimming free event/game numbers as necessary").await?;
         }
     }
 
