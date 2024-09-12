@@ -99,6 +99,16 @@ impl StandingEvent {
                         looked_up.into_iter().map(|u| u.short_summary()).join(", "),
                         -delta_rating)
             }
+            StandingEventInner::InactivityDecay { victims, delta_deviation } => {
+                let mut looked_up = Vec::with_capacity(victims.len());
+                for player_id in victims.iter() {
+                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("penalized user not found"));
+                }
+
+                format!("{} gain {} deviation due to 1 week of inactivity",
+                        looked_up.into_iter().map(|u| u.short_summary()).join(", "),
+                        delta_deviation)
+            }
             _ => String::from("don't know how to summarize this event type")
         };
 
