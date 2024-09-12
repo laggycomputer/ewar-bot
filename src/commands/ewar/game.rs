@@ -7,12 +7,13 @@ use crate::model::StandingEventInner::GameEnd;
 use crate::model::{Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
-use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
 use crate::util::rating::RatingExtra;
+use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
 use crate::util::short_user_reference;
 use crate::{BotError, Context};
 use bson::doc;
 use chrono::{TimeDelta, Utc};
+use futures::TryStreamExt;
 use itertools::Itertools;
 use poise::CreateReply;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User};
@@ -21,6 +22,7 @@ use std::collections::HashSet;
 use std::convert::identity;
 use std::time::Duration;
 use timeago::TimeUnit::Seconds;
+use crate::util::paginate::EmbedLinePaginator;
 
 enum BadPlacementType {
     DuplicateUser,
@@ -69,7 +71,7 @@ async fn placement_discord_to_system(placement: &Vec<User>, pg_conn: &deadpool_p
     Ok(Ok(placement_system_users))
 }
 
-#[poise::command(prefix_command, slash_command, subcommands("post", "whatif", "query"))]
+#[poise::command(prefix_command, slash_command, subcommands("post", "whatif", "query", "log"))]
 pub(crate) async fn game(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.reply("base command is noop, try a subcommand").await?;
 
@@ -425,6 +427,40 @@ pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"]
             .description(ranking)
         )
         .reply(true)).await?;
+
+    Ok(())
+}
+
+/// Get a reverse-chronological ordered log of every game
+#[poise::command(prefix_command, slash_command)]
+pub(crate) async fn log(
+    ctx: Context<'_>,
+    #[description = "skip games after this ID"] before: Option<GameID>,
+) -> Result<(), BotError> {
+    ctx.defer().await?;
+
+    let pg_conn = ctx.data().postgres.get().await?;
+
+    let filter_doc = if before.is_some() {
+        doc! { "inner.GameEnd": doc! { "$exists": true },
+            "inner.GameEnd.game_id": doc! { "$lte": before.unwrap() }
+        }
+    } else {
+        doc! { "inner.GameEnd": doc! { "$exists": true } }
+    };
+
+    let mut lines = Vec::new();
+    let mut cur = ctx.data().mongo.collection::<StandingEvent>("events")
+        .find(filter_doc)
+        .sort(doc! { "_id": -1 })
+        .limit(200)
+        .await?;
+    while let Some(event) = cur.try_next().await? {
+        lines.push(event.short_summary(&pg_conn).await?);
+    }
+
+    EmbedLinePaginator::new(lines)
+        .run(ctx).await?;
 
     Ok(())
 }
