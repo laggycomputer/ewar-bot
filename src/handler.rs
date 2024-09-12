@@ -9,10 +9,6 @@ pub(crate) struct EWarBotHandler;
 
 #[async_trait]
 impl EventHandler for EWarBotHandler {
-    async fn message(&self, ctx: Context, msg: Message) {
-        // println!("{}", msg.content);
-    }
-
     async fn ready(&self, ctx: Context, ready_info: Ready) {
         println!("ok, connected as {} (UID {})", ready_info.user.tag(), ready_info.user.id);
         println!("using discord API version {}", ready_info.version);
