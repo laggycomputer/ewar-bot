@@ -1,9 +1,16 @@
-use crate::model::{AggregatePlayer, Player};
+use crate::model::Player;
 use crate::util::paginate::EmbedLinePaginator;
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct AggregatePlayer {
+    pub(crate) lb_rating: f64,
+    pub(crate) inner: Player,
+}
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]

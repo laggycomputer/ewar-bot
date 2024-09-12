@@ -72,12 +72,6 @@ impl Player {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct AggregatePlayer {
-    pub(crate) lb_rating: f64,
-    pub(crate) inner: Player,
-}
-
 // precompute rating at certain points in the timeline
 struct Checkpoint {
     after: EventNumber,
