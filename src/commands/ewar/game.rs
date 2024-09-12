@@ -273,7 +273,7 @@ pub(crate) async fn post(
     ctx.data().mongo.collection::<StandingEvent>("events").insert_one(event).await?;
 
     if !poster_not_moderator {
-        advance_approve_pointer(&ctx.data(), None).await?;
+        advance_approve_pointer(ctx.data(), None).await?;
     }
 
     // part 5: moderator must sign later
