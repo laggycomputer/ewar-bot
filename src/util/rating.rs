@@ -97,7 +97,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
         }
     }
 
-    league_info_collection.find_one_and_update(doc! {}, doc! {
+    league_info_collection.update_one(doc! {}, doc! {
         "$max": doc! { "first_unreviewed_event_number": first_unreviewed_event_number_num as i64 },
     }).await?;
 
