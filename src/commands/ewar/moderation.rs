@@ -1,7 +1,7 @@
 use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
 use crate::model::StandingEventInner::{GameEnd, Penalty};
-use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
+use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, Player, PlayerID, StandingEvent};
 use crate::util::checks::{has_system_account, is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::util::{base_embed, remove_markdown};
@@ -58,8 +58,10 @@ pub(crate) async fn review(
 
     if approved {
         // set everyone's last played
-        // TODO fix for mongo
-        // pg_conn.execute("UPDATE players SET last_played = $1 WHERE (last_played IS NULL OR last_played < $1) AND player_id = ANY($2)", &[&when.naive_utc(), &ranking]).await?;
+        ctx.data().mongo.collection::<Player>("players").update_many(
+            doc! {"_id": {"$in": ranking}},
+            doc! {"$max": {"last_played": bson::DateTime::from_chrono(when)}},
+        ).await?;
 
         ctx.send(CreateReply::default()
             .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
