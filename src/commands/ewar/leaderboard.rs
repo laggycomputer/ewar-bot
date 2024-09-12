@@ -4,13 +4,6 @@ use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub(crate) struct AggregatePlayer {
-    pub(crate) lb_rating: f64,
-    pub(crate) inner: Player,
-}
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -21,6 +14,7 @@ pub(crate) async fn leaderboard(
     ctx.defer().await?;
 
     let sort_doc = doc! {"$sort": { "lb_rating": -1 }};
+    let new_root_doc = doc! {"$replaceRoot": {"newRoot": "$inner"}};
     let aggregate_players = ctx.data().mongo.collection::<Player>("players").aggregate(if include_provisional.unwrap_or(false) {
         let agg_doc = doc! {
             "$project": {
@@ -34,7 +28,7 @@ pub(crate) async fn leaderboard(
                 "inner": "$$ROOT"
             }
         };
-        vec![agg_doc, sort_doc]
+        vec![agg_doc, sort_doc, new_root_doc]
     } else {
         let filter_doc = doc! {
             "$match": {"deviation": {"$lte": 2.5}}
@@ -45,8 +39,8 @@ pub(crate) async fn leaderboard(
                 "inner": "$$ROOT"
             }
         };
-        vec![filter_doc, agg_doc, sort_doc]
-    }).with_type::<AggregatePlayer>().await?
+        vec![filter_doc, agg_doc, sort_doc, new_root_doc]
+    }).with_type::<Player>().await?
         .try_collect::<Vec<_>>().await?;
 
     if aggregate_players.is_empty() {
@@ -55,9 +49,9 @@ pub(crate) async fn leaderboard(
     }
 
     let mut lb_lines = Vec::with_capacity(aggregate_players.len());
-    for (ind, agg_player) in aggregate_players.into_iter().enumerate() {
-        let mut line = format!("{}: {}", agg_player.inner.short_summary(), agg_player.inner.rating_struct().format_rating());
-        line = if agg_player.inner.rating_struct().is_provisional() { format!("~~{}~~", line) } else { line };
+    for (ind, player) in aggregate_players.into_iter().enumerate() {
+        let mut line = format!("{}: {}", player.short_summary(), player.rating_struct().format_rating());
+        line = if player.rating_struct().is_provisional() { format!("~~{}~~", line) } else { line };
 
         lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
     }
