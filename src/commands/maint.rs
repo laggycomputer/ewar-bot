@@ -61,10 +61,20 @@ pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
 
     let mut had_err = false;
 
-    let mut events = ctx.data().mongo.collection::<Document>("events").find(doc! {}).await?;
+    let mut first_missing_event = 0;
+    let mut events = ctx.data().mongo.collection::<Document>("events").find(doc! {}).sort(doc! {"_id": 1}).await?;
     while let Some(out) = events.try_next().await? {
         let to_send = match try_make::<StandingEvent>(out.clone()) {
-            Ok(_) => continue,
+            Ok(evt) => {
+                if evt._id != first_missing_event {
+                    let out = format!("event {first_missing_event} is missing");
+                    first_missing_event = evt._id + 1;
+                    out
+                } else {
+                    first_missing_event += 1;
+                    continue
+                }
+            }
             Err(e) => {
                 let offender: &Bson = out.get("_id").expect("how does a mongo object not have an id");
                 format!("event {} is not okay:\n{:?}", offender.to_string(), e)
@@ -75,8 +85,22 @@ pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
         ctx.reply(to_send).await?;
     }
 
-    if !had_err {
-        ctx.reply("all events look ok").await?;
+    let league_info = match ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one(doc! {}).await? {
+        None => {
+            ctx.reply("league_info is invalid").await?;
+            return Ok(())
+        },
+        Some(info) => info
+    };
+
+    if league_info.available_event_number != first_missing_event {
+        ctx.reply(format!("league_info available event number {} != actual {first_missing_event}", league_info.available_event_number)).await?;
+        had_err = true;
     }
+
+    if !had_err {
+        ctx.reply("all ok").await?;
+    }
+
     Ok(())
 }
