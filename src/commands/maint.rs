@@ -102,7 +102,8 @@ pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] re
     };
 
     if league_info.available_event_number != first_missing_event {
-        ctx.reply(format!("league_info available event number {} != actual {first_missing_event}", league_info.available_event_number)).await?;
+        ctx.reply(format!("league_info available event number {} != actual {first_missing_event}, INSPECT AND FIX",
+                          league_info.available_event_number)).await?;
         had_err = true;
     }
 
