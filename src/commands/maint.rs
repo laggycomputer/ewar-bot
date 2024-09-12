@@ -56,12 +56,14 @@ where
 
 /// check integrity of event log
 #[poise::command(prefix_command, slash_command, owners_only)]
-pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
+pub(crate) async fn fsck(ctx: Context<'_>, #[description = "attempt repairs"] repair: Option<bool>) -> Result<(), BotError> {
     ctx.defer().await?;
 
     let mut had_err = false;
 
     let mut first_missing_event = 0;
+    let mut first_unreviewed_event = 0;
+
     let mut events = ctx.data().mongo.collection::<Document>("events").find(doc! {}).sort(doc! {"_id": 1}).await?;
     while let Some(out) = events.try_next().await? {
         let to_send = match try_make::<StandingEvent>(out.clone()) {
@@ -72,7 +74,12 @@ pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
                     out
                 } else {
                     first_missing_event += 1;
-                    continue
+                    match evt.approval_status {
+                        None => first_unreviewed_event = evt._id,
+                        Some(_) => first_unreviewed_event = if first_unreviewed_event == evt._id {evt._id + 1} else {first_unreviewed_event},
+                    }
+
+                    continue;
                 }
             }
             Err(e) => {
@@ -87,9 +94,9 @@ pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
 
     let league_info = match ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one(doc! {}).await? {
         None => {
-            ctx.reply("league_info is invalid").await?;
-            return Ok(())
-        },
+            ctx.reply("league_info DNE").await?;
+            return Ok(());
+        }
         Some(info) => info
     };
 
@@ -98,8 +105,21 @@ pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
         had_err = true;
     }
 
+    if league_info.first_unreviewed_event_number != first_unreviewed_event {
+        ctx.reply(format!("league_info unreviewed event number {} != actual {first_unreviewed_event}", league_info.first_unreviewed_event_number)).await?;
+        had_err = true;
+    }
+
     if !had_err {
         ctx.reply("all ok").await?;
+    } else {
+        if repair.unwrap_or(false) {
+            let mut fix_league_info = LeagueInfo::from(league_info);
+            // fix_league_info.available_event_number = first_missing_event;
+            fix_league_info.first_unreviewed_event_number = first_unreviewed_event;
+            ctx.data().mongo.collection::<LeagueInfo>("league_info").find_one_and_replace(doc! {}, fix_league_info).await?;
+            ctx.reply("fixing approve pointer").await?;
+        }
     }
 
     Ok(())
