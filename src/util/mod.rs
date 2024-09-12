@@ -2,6 +2,7 @@ pub(crate) mod checks;
 pub(crate) mod rating;
 pub(crate) mod constants;
 pub(crate) mod paginate;
+pub(crate) mod serialization;
 
 use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::SystemID;

@@ -82,3 +82,28 @@ pub(crate) async fn fsck(ctx: Context<'_>) -> Result<(), BotError> {
     }
     Ok(())
 }
+
+/// check integrity of event log
+#[poise::command(prefix_command, slash_command, owners_only)]
+pub(crate) async fn migrate(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.defer().await?;
+
+    let all_players = ctx.data().mongo.collection::<Player>("players2").find(doc! {})
+        .sort(doc! { "_id": 1 })
+        .await?
+        .try_collect::<Vec<_>>()
+        .await?;
+
+    ctx.data().mongo.collection::<Player>("players").insert_many(all_players).await?;
+
+    let all_events = ctx.data().mongo.collection::<StandingEvent>("events2").find(doc! {})
+        .sort(doc! { "_id": 1 })
+        .await?
+        .try_collect::<Vec<_>>()
+        .await?;
+
+    ctx.data().mongo.collection::<StandingEvent>("events").insert_many(all_events).await?;
+
+    ctx.reply("ok").await?;
+    Ok(())
+}

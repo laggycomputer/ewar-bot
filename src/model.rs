@@ -51,6 +51,7 @@ pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) inner: StandingEventInner,
+    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub(crate) when: chrono::DateTime<Utc>,
 }
 
@@ -60,6 +61,7 @@ pub(crate) struct Player {
     pub(crate) username: String,
     pub(crate) rating: f64,
     pub(crate) deviation: f64,
+    #[serde(with = "crate::util::serialization::chrono_datetime_option_as_bson_datetime_option")]
     pub(crate) last_played: Option<chrono::DateTime<Utc>>,
     pub(crate) discord_ids: Vec<u64>,
 }
