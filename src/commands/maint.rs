@@ -1,14 +1,14 @@
+use crate::model::StandingEventInner::GameEnd;
 use crate::model::{EventNumber, Game, LeagueInfo, Player, StandingEvent};
 use crate::util::checks::is_league_moderator;
 use crate::util::rating::advance_approve_pointer;
 use crate::{inactivity_decay_inner, BotError, Context};
-use bson::Bson::Int64;
+use bson::Bson::{Int64, Null};
 use bson::{doc, Bson, Document};
 use futures::TryStreamExt;
 use serde::de::DeserializeOwned;
 use std::cmp::min;
 use std::error::Error;
-use crate::model::StandingEventInner::GameEnd;
 
 /// attempt to advance the approve pointer (be careful)
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
@@ -42,7 +42,11 @@ pub(crate) async fn force_reprocess(ctx: Context<'_>) -> Result<(), BotError> {
         .update_one(doc! {}, doc! { "$set": {"first_unreviewed_event_number": Int64(0) } })
         .await?;
 
-    ctx.data().mongo.collection::<Player>("players").update_many(doc! {}, doc! { "$set": { "rating": 0, "deviation": 0 } }).await?;
+    ctx.data().mongo.collection::<Player>("players").update_many(doc! {}, doc! {"$set": {
+        "rating": 0,
+        "deviation": 0,
+        "last_played": Null
+    }}).await?;
 
     ctx.reply("ok").await?;
     Ok(())
