@@ -1,5 +1,5 @@
 use crate::commands::ewar::user::UserLookupType::{DiscordID, Username};
-use crate::model::StandingEventInner::JoinLeague;
+use crate::model::StandingEventInner::{InactivityDecay, JoinLeague};
 use crate::model::{ApprovalStatus, LeagueInfo, Player, PlayerID, StandingEvent};
 use crate::util::constants::DEFAULT_RATING;
 use crate::util::rating::RatingExtra;
@@ -7,6 +7,7 @@ use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use bson::doc;
 use chrono::Utc;
+use futures::TryStreamExt;
 use itertools::Itertools;
 use mongodb::Database;
 use poise::CreateReply;
@@ -31,6 +32,35 @@ pub(crate) async fn try_lookup_player(mongo: &Database, how: UserLookupType<'_>)
 
 /// shared postlude to every lookup method; just show the user
 async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<(), BotError> {
+    let events = ctx.data().mongo.collection::<StandingEvent>("events")
+        .find(doc! {
+            "$or": [
+                { "inner.Penalty.victims": looked_up._id },
+                { "inner.InactivityDecay.victims": looked_up._id },
+                { "inner.JoinLeague.victims": looked_up._id },
+                { "inner.GameEnd.ranking": looked_up._id },
+            ]
+        }).sort(doc! {"_id": -1})
+        .limit(10).await?
+        .try_collect::<Vec<_>>().await?;
+
+    let mut event_lines = Vec::with_capacity(events.len());
+    let mut consec_decay = 0;
+    for event in events {
+        match &event.inner {
+            InactivityDecay { .. } => consec_decay += 1,
+            _ => {
+                match consec_decay {
+                    0 => {}
+                    1 => event_lines.push("<inactivity decay>".to_string().into_boxed_str()),
+                    n => event_lines.push(format!("<inactivity decay> x{n}").into_boxed_str())
+                }
+                consec_decay = 0;
+                event_lines.push(event.short_summary(&ctx.data().mongo).await?);
+            }
+        }
+    }
+
     let mut assoc_accounts = looked_up.discord_ids.iter()
         .map(|id| UserId::try_from(*id).unwrap().mention())
         .join(", ");
@@ -62,8 +92,8 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
                 .map(|dt| format!("<t:{}:f> ({})", dt.timestamp(), time_formatter.convert_chrono(dt, Utc::now())))
                 .unwrap_or("never".to_string()),
                    true)
-            .description("associated discord accounts: ".to_owned() + &assoc_accounts))).await?;
-
+            .field("associated discord accounts", assoc_accounts, true)
+            .description(format!("recent events:\n\n{}", event_lines.into_iter().join("\n"))))).await?;
     Ok(())
 }
 
