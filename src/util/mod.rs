@@ -79,6 +79,16 @@ impl StandingEvent {
                     placement_string,
                 )
             }
+            StandingEventInner::JoinLeague { victims, initial_rating, initial_deviation } => {
+                let mut looked_up = Vec::with_capacity(victims.len());
+                for player_id in victims.iter() {
+                    looked_up.push(try_lookup_user(pg_conn, SystemID(*player_id)).await?.expect("user joined to league not found"));
+                }
+
+                format!(
+                    "{} joined league with rating {initial_rating}, deviation {initial_deviation}",
+                    looked_up.into_iter().map(|u| u.short_summary()).join(", "))
+            }
             _ => String::from("don't know how to summarize this event type")
         };
 
