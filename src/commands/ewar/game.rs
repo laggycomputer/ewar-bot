@@ -15,6 +15,7 @@ use chrono::{TimeDelta, Utc};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use mongodb::Database;
+use pluralizer::pluralize;
 use poise::CreateReply;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User, UserId};
 use std::collections::HashSet;
@@ -170,17 +171,25 @@ pub(crate) async fn post(
             .components(vec![])
     )).await?;
 
+    let num_need_to_sign = match placement_discord.len() {
+        ..=3 => placement_discord.len(),
+        _ => placement_discord.len() / 2 + 1
+    };
+    let max_not_signing = placement_discord.len() - num_need_to_sign;
+
     // part 3: parties to game must sign
     // moderators can skip this
     if poster_not_moderator {
         let make_signoff_msg = |not_signed_off: &HashSet<User>, disable_button: bool| (
             format!(
                 "please sign off on this game with :white_check_mark:\n\
-            simple majority is required to submit game\n\
+            currently have {}/{} required to submit game\n\
             {}\n\
             \n\
             ~~struck through~~ players have already signed\n\
             **after 5 minutes of inactivity, game is rejected for submission**",
+                not_signed_off.len(),
+                pluralize("signature", num_need_to_sign as isize, true),
                 placement_discord.iter().map(|user| {
                     if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
                 }).join("\n")),
@@ -196,7 +205,7 @@ pub(crate) async fn post(
             .components(signoff_components)).await?
             .into_message().await?;
 
-        while not_signed_off.len() >= ((placement_discord.len() / 2) as f32).ceil() as usize {
+        while not_signed_off.len() > max_not_signing {
             let not_signed_off_freeze = not_signed_off.clone();
             match party_sign_stage_msg.await_component_interaction(&ctx.serenity_context().shard)
                 .filter(move |ixn| {
