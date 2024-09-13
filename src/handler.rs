@@ -20,6 +20,7 @@ impl EventHandler for EWarBotHandler {
             let status = [
                 "playing egyptian war",
                 "safety slapping",
+                "gambling away cards",
                 "counting until the jack comes back",
                 "burning to a slap",
                 "slapping too hard",
