@@ -1,5 +1,5 @@
 use crate::model::Player;
-use crate::util::paginate::EmbedLinePaginator;
+use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
@@ -56,7 +56,7 @@ pub(crate) async fn leaderboard(
         lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
     }
 
-    EmbedLinePaginator::new(lb_lines)
+    EmbedLinePaginator::new(lb_lines, PaginatorOptions::new())
         .run(ctx).await?;
 
     Ok(())

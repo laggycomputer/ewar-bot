@@ -6,7 +6,7 @@ use crate::model::{ApprovalStatus, Player};
 use crate::model::{Game, GameID, LeagueInfo, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
-use crate::util::paginate::EmbedLinePaginator;
+use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::util::rating::RatingExtra;
 use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
 use crate::{BotError, Context};
@@ -20,6 +20,7 @@ use poise::CreateReply;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mentionable, ReactionType, User, UserId};
 use std::collections::HashSet;
 use std::convert::identity;
+use std::num::NonZeroUsize;
 use std::time::Duration;
 use timeago::TimeUnit::Seconds;
 
@@ -448,8 +449,9 @@ pub(crate) async fn log(
         lines.push(event.short_summary(&ctx.data().mongo).await?)
     }
 
-    EmbedLinePaginator::new(lines)
-        .run(ctx).await?;
+    EmbedLinePaginator::new(lines, PaginatorOptions::new()
+        .max_lines(NonZeroUsize::new(10).unwrap())
+    ).run(ctx).await?;
 
     Ok(())
 }

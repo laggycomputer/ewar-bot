@@ -3,6 +3,8 @@ use crate::{BotError, Context};
 use poise::CreateReply;
 use serenity::all::{CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter, CreateInteractionResponseMessage, ReactionType};
 use serenity::builder::CreateInteractionResponse;
+use std::cmp::min;
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 pub(crate) struct EmbedLinePaginator {
@@ -10,25 +12,70 @@ pub(crate) struct EmbedLinePaginator {
     current_page: u8,
 }
 
+pub(crate) struct PaginatorOptions {
+    sep: Box<str>,
+    max_lines: Option<usize>,
+    // paginator will default to and cap at 4096
+    char_limit: usize,
+}
+
+impl Default for PaginatorOptions {
+    fn default() -> Self {
+        Self {
+            sep: Box::from("\n"),
+            max_lines: None,
+            char_limit: 4096,
+        }
+    }
+}
+
+impl PaginatorOptions {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn sep(mut self, sep: impl Into<Box<str>>) -> Self {
+        self.sep = sep.into();
+        self
+    }
+
+    pub(crate) fn max_lines(mut self, max_lines: impl Into<NonZeroUsize>) -> Self {
+        self.max_lines = Some(max_lines.into().get());
+        self
+    }
+
+    pub(crate) fn char_limit(mut self, char_limit: impl Into<NonZeroUsize>) -> Self {
+        self.char_limit = min(char_limit.into().get(), 4096);
+        self
+    }
+}
+
 impl EmbedLinePaginator {
-    pub(crate) fn new(lines: Vec<Box<str>>) -> EmbedLinePaginator {
+    pub(crate) fn new(lines: Vec<Box<str>>, options: PaginatorOptions) -> EmbedLinePaginator {
         let mut chunks = Vec::new();
         chunks.push(String::new());
         let mut working_chunk = &mut chunks[0];
-        let mut num_chunks = 1;
+        let mut num_in_working_chunk = 0usize;
+        let mut num_chunks = 1usize;
 
         for line in lines {
-            if working_chunk.chars().count() + 1 + line.chars().count() > 4096 {
+            if working_chunk.chars().count() + options.sep.len() + line.chars().count() > options.char_limit
+                || num_in_working_chunk >= options.max_lines.unwrap_or(usize::MAX) {
                 chunks.push(String::new());
                 num_chunks += 1;
                 working_chunk = &mut chunks[num_chunks - 1];
+                num_in_working_chunk = 0;
             }
 
-            working_chunk.push('\n');
+            working_chunk.push_str(&*options.sep);
             working_chunk.push_str(&*line);
+            num_in_working_chunk += 1;
         }
 
-        Self { pages: chunks, current_page: 1 }
+        Self {
+            pages: chunks,
+            current_page: 1,
+        }
     }
 
     fn embed_for(&self, ctx: Context<'_>, page: u8) -> CreateEmbed {

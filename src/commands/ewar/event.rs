@@ -1,5 +1,6 @@
+use std::num::NonZeroUsize;
 use crate::model::{EventNumber, StandingEvent};
-use crate::util::paginate::EmbedLinePaginator;
+use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
@@ -33,8 +34,9 @@ pub(crate) async fn log(
         .await?;
     while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&ctx.data().mongo).await?) }
 
-    EmbedLinePaginator::new(lines)
-        .run(ctx).await?;
+    EmbedLinePaginator::new(lines, PaginatorOptions::new()
+        .max_lines(NonZeroUsize::new(10).unwrap())
+    ).run(ctx).await?;
 
     Ok(())
 }
