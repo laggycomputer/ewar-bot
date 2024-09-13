@@ -4,6 +4,7 @@ use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
+use crate::util::constants::LOG_LIMIT;
 
 #[poise::command(prefix_command, slash_command, subcommands("log"))]
 pub(crate) async fn event(ctx: Context<'_>) -> Result<(), BotError> {
@@ -12,7 +13,7 @@ pub(crate) async fn event(ctx: Context<'_>) -> Result<(), BotError> {
     Ok(())
 }
 
-/// Get up to 200 past events
+/// See past events
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn log(
     ctx: Context<'_>,
@@ -30,7 +31,7 @@ pub(crate) async fn log(
     let mut cur = ctx.data().mongo.collection::<StandingEvent>("events")
         .find(filter_doc)
         .sort(doc! { "_id": -1 })
-        .limit(200)
+        .limit(LOG_LIMIT)
         .await?;
     while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&ctx.data().mongo).await?) }
 

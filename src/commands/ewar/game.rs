@@ -6,6 +6,7 @@ use crate::model::{ApprovalStatus, Player};
 use crate::model::{Game, GameID, LeagueInfo, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
+use crate::util::constants::LOG_LIMIT;
 use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::util::rating::RatingExtra;
 use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
@@ -423,7 +424,7 @@ pub(crate) async fn query(ctx: Context<'_>, #[description = "ID of game to get"]
     Ok(())
 }
 
-/// Get a reverse-chronological ordered log of every game
+/// Get a reverse-chronological ordered log of games
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn log(
     ctx: Context<'_>,
@@ -443,7 +444,7 @@ pub(crate) async fn log(
     let mut cur = ctx.data().mongo.collection::<StandingEvent>("events")
         .find(filter_doc)
         .sort(doc! { "_id": -1 })
-        .limit(200)
+        .limit(LOG_LIMIT)
         .await?;
     while let Some(event) = cur.try_next().await? {
         lines.push(event.short_summary(&ctx.data().mongo).await?)
