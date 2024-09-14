@@ -45,4 +45,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: windows-build
-          path: target/x86_64-pc-windows-gnu/release/ewar-bot
+          path: target/x86_64-pc-windows-gnu/release/ewar-bot.exe
