@@ -38,11 +38,11 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: linux-build
-          path: target/x86_64-unknown-linux-gnu/release/
+          path: target/x86_64-unknown-linux-gnu/release/ewar-bot
 
       - name: Upload Windows build artifact
         if: matrix.target == 'x86_64-pc-windows-gnu'
         uses: actions/upload-artifact@v3
         with:
           name: windows-build
-          path: target/x86_64-pc-windows-gnu/release/
+          path: target/x86_64-pc-windows-gnu/release/ewar-bot
