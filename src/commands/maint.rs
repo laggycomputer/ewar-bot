@@ -16,6 +16,8 @@ pub(crate) async fn advance_pointer(
     ctx: Context<'_>,
     #[description = "do not approve this event number and after"] stop_before: Option<EventNumber>,
 ) -> Result<(), BotError> {
+    ctx.defer().await?;
+
     let LeagueInfo { first_unreviewed_event_number, .. } = ctx.data().mongo
         .collection::<LeagueInfo>("league_info")
         .find_one(doc! {})
