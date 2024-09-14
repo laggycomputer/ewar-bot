@@ -190,7 +190,7 @@ pub(crate) async fn post(
             \n\
             ~~struck through~~ players have already signed\n\
             **after 5 minutes of inactivity, game is rejected for submission**",
-                not_signed_off.len(),
+                placement_discord.len() - not_signed_off.len(),
                 pluralize("signature", num_need_to_sign as isize, true),
                 placement_discord.iter().map(|user| {
                     if not_signed_off.contains(user) { user.mention().to_string() } else { format!("~~{}~~", user.mention()) }
