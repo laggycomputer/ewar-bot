@@ -1,3 +1,4 @@
+use std::convert::identity;
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
 use crate::model::StandingEventInner::{InactivityDecay, JoinLeague};
 use crate::model::{ApprovalStatus, GameID, LeagueInfo, Player, PlayerID, StandingEvent};
@@ -196,13 +197,54 @@ async fn by_id(ctx: Context<'_>, #[description = "System ID to lookup by"] id: P
     Ok(())
 }
 
+pub(crate) async fn register_user(mongo: &Database, user: Option<&User>, proposed_name: String) -> Result<Player, BotError> {
+    let TrueSkillRating { rating, uncertainty, .. } = DEFAULT_RATING;
+
+    let LeagueInfo { available_event_number, available_player_id, .. } = mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one_and_update(
+            doc! {},
+            doc! { "$inc": { "available_event_number": 1, "available_player_id": 1, } })
+        .await?
+        .expect("league_info struct missing");
+
+    // add player
+    let new_player = Player {
+        _id: available_player_id,
+        username: proposed_name,
+        rating,
+        deviation: uncertainty,
+        last_played: None,
+        discord_ids: vec![user].into_iter().filter_map(identity).map(|u| u.id.get()).collect_vec(),
+    };
+    mongo.collection::<Player>("players").insert_one(&new_player).await?;
+
+    // add league join event
+    mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
+        _id: available_event_number,
+        approval_status: Some(ApprovalStatus {
+            approved: true,
+            reviewer: None,
+        }),
+        inner: JoinLeague {
+            victims: vec![available_player_id],
+            initial_rating: rating,
+            initial_deviation: uncertainty,
+        },
+        when: Utc::now(),
+    }).await?;
+
+    Ok(new_player)
+}
+
 #[poise::command(prefix_command, slash_command)]
 pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your Discord username - name you want upon registration"] desired_name: Option<String>) -> Result<(), BotError> {
     let proposed_name = desired_name.unwrap_or(ctx.author().name.clone()).to_lowercase();
 
     match try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await? {
         Some(player) => {
-            ctx.reply(format!("cannot bind your discord to a second user (currently bound to user {})",
+            ctx.reply(
+                format!("cannot bind your discord account to a second player (currently bound to user {})",
                               player.reference_no_discord()))
                 .await?;
             return Ok(());
@@ -227,43 +269,8 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         return Ok(());
     }
 
-    let TrueSkillRating { rating, uncertainty, .. } = DEFAULT_RATING;
+    let new_player = register_user(&ctx.data().mongo, Some(ctx.author()), proposed_name).await?;
 
-    let LeagueInfo { available_event_number, available_player_id, .. } = ctx.data().mongo
-        .collection::<LeagueInfo>("league_info")
-        .find_one_and_update(
-            doc! {},
-            doc! { "$inc": { "available_event_number": 1, "available_player_id": 1, } })
-        .await?
-        .expect("league_info struct missing");
-
-    // add player
-    let new_player = Player {
-        _id: available_player_id,
-        username: proposed_name,
-        rating,
-        deviation: uncertainty,
-        last_played: None,
-        discord_ids: vec![ctx.author().id.get()],
-    };
-    ctx.data().mongo.collection::<Player>("players").insert_one(&new_player).await?;
-
-    // add league join event
-    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
-        _id: available_event_number,
-        approval_status: Some(ApprovalStatus {
-            approved: true,
-            reviewer: None,
-        }),
-        inner: JoinLeague {
-            victims: vec![available_player_id],
-            initial_rating: rating,
-            initial_deviation: uncertainty,
-        },
-        when: Utc::now(),
-    }).await?;
-
-    ctx.reply(format!("welcome new user {}", new_player.reference_no_discord())).await?;
-
+    ctx.reply(format!("ok, new user {} created", new_player.reference_no_discord())).await?;
     Ok(())
 }

@@ -143,6 +143,7 @@ async fn main() {
                 ewar::moderation::review(),
                 ewar::moderation::unreviewed(),
                 ewar::moderation::penalize(),
+                ewar::moderation::force_register(),
                 ewar::leaderboard::leaderboard(),
             ],
             prefix_options: PrefixFrameworkOptions {

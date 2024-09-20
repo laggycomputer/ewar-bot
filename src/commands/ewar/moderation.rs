@@ -1,5 +1,5 @@
-use crate::commands::ewar::user::try_lookup_player;
-use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
+use crate::commands::ewar::user::{register_user, try_lookup_player};
+use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
 use crate::model::StandingEventInner::{GameEnd, Penalty};
 use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::checks::{has_system_account, is_league_moderator};
@@ -11,7 +11,7 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use poise::CreateReply;
-use serenity::all::{CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId};
+use serenity::all::{CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId, User};
 use std::time::Duration;
 
 /// League moderators: review game for league record; approve or reject
@@ -100,6 +100,39 @@ pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
             .footer(CreateEmbedFooter::new("only showing earliest 10 unreviewed games")))
         .reply(true)).await?;
 
+    Ok(())
+}
+
+/// League moderators: register a user by force
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
+pub(crate) async fn force_register(
+    ctx: Context<'_>,
+    #[description = "discord user to register"] username: String,
+    #[description = "username to give them"] victim: Option<User>,
+) -> Result<(), BotError> {
+    if victim.is_some() {
+        match try_lookup_player(&ctx.data().mongo, DiscordID(victim.as_ref().unwrap().id.get())).await? {
+            Some(player) => {
+                ctx.reply(
+                    format!("cannot bind that discord user to a second player (currently bound to user {})",
+                            player.reference_no_discord()))
+                    .await?;
+                return Ok(());
+            }
+            None => {}
+        };
+    }
+
+    if try_lookup_player(&ctx.data().mongo, Username(&*username)).await?.is_some() {
+        ctx.reply(format!("user by name {username} already exists")).await?;
+        return Ok(());
+    }
+
+    // no username validation lmao
+
+    let new_player = register_user(&ctx.data().mongo, victim.as_ref(), username).await?;
+
+    ctx.reply(format!("ok, new user {} created", new_player.reference_no_discord())).await?;
     Ok(())
 }
 
