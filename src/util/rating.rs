@@ -15,6 +15,8 @@ pub(crate) trait RatingExtra {
     fn is_provisional(&self) -> bool;
     fn leaderboard_rating(&self) -> f64;
     fn format_rating(&self) -> String;
+    /// calculate effective rating for game calculations
+    fn as_effective(&self) -> Self;
 }
 
 impl RatingExtra for TrueSkillRating {
@@ -33,6 +35,13 @@ impl RatingExtra for TrueSkillRating {
     fn format_rating(&self) -> String {
         format!("{:.2}{}", self.leaderboard_rating(), if self.is_provisional() { "**?**" } else { "" })
     }
+
+    fn as_effective(&self) -> Self {
+        Self {
+            rating: self.rating,
+            uncertainty: self.uncertainty.max(1f64),
+        }
+    }
 }
 
 pub(crate) fn expected_outcome(placement: &Vec<TrueSkillRating>) -> Vec<f64> {
@@ -50,7 +59,7 @@ pub(crate) fn expected_outcome(placement: &Vec<TrueSkillRating>) -> Vec<f64> {
 
 pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueSkillRating> {
     let ratings = placement.iter()
-        .map(|rating| vec![*rating])
+        .map(|rating| vec![rating.as_effective()])
         .collect_vec();
 
     // each team has exactly 1 player
@@ -85,7 +94,7 @@ pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<
         if first_unreviewed_event_number_num >= stop_before.unwrap_or(EventNumber::MAX) { break; }
 
         let standing_event = standing_event?;
-        let StandingEvent {  ref approval_status, .. } = standing_event;
+        let StandingEvent { ref approval_status, .. } = standing_event;
         match approval_status {
             None => break,
             Some(approval_status) => {
