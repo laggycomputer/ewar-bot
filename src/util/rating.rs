@@ -39,7 +39,7 @@ impl RatingExtra for TrueSkillRating {
     fn as_effective(&self) -> Self {
         Self {
             rating: self.rating,
-            uncertainty: self.uncertainty.max(1f64),
+            uncertainty: self.uncertainty.max(0.8f64),
         }
     }
 }
