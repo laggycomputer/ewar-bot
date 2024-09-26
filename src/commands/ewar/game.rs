@@ -143,10 +143,12 @@ pub(crate) async fn post(
             "\n**as a moderator, your confirmation will submit and approve the game immediately**"
         } else { "" });
 
+    let initial_confirm_timeout = 15;
+
     let initial_confirm_button = CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")));
     let reply = CreateReply::default()
         .embed(base_embed(ctx)
-            .description(emb_desc.clone() + "\nplease click below if this is what you meant (10s timeout)"))
+            .description(emb_desc.clone() + "\nplease click below if this is what you meant ({initial_confirm_timeout}s timeout)"))
         .components(vec![
             CreateActionRow::Buttons(vec![
                 initial_confirm_button.clone()])]);
@@ -155,7 +157,7 @@ pub(crate) async fn post(
     let waited = msg_part2.message().await?.await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
         .custom_ids(vec![String::from("postgame_confirm_initial")])
-        .timeout(Duration::from_secs(10)).await;
+        .timeout(Duration::from_secs(initial_confirm_timeout)).await;
 
     if waited.is_none() {
         ctx.reply("timed out, submission of this game cancelled").await?;
