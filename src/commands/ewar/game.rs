@@ -148,7 +148,7 @@ pub(crate) async fn post(
     let initial_confirm_button = CreateButton::new("postgame_confirm_initial").emoji(ReactionType::Unicode(String::from("✅")));
     let reply = CreateReply::default()
         .embed(base_embed(ctx)
-            .description(emb_desc.clone() + "\nplease click below if this is what you meant ({initial_confirm_timeout}s timeout)"))
+            .description(emb_desc.clone() + &*format!("\nplease click below if this is what you meant ({initial_confirm_timeout}s timeout)")))
         .components(vec![
             CreateActionRow::Buttons(vec![
                 initial_confirm_button.clone()])]);
