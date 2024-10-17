@@ -13,3 +13,5 @@ pub(crate) static DEFAULT_RATING: TrueSkillRating = TrueSkillRating {
 };
 
 pub(crate) static LOG_LIMIT: i64 = 50;
+
+pub(crate) static PROVISIONAL_DEVIATION_THRESHOLD: f64 = 2.0;

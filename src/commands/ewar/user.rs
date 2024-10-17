@@ -2,7 +2,7 @@ use std::convert::identity;
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
 use crate::model::StandingEventInner::{InactivityDecay, JoinLeague};
 use crate::model::{ApprovalStatus, GameID, LeagueInfo, Player, PlayerID, StandingEvent};
-use crate::util::constants::DEFAULT_RATING;
+use crate::util::constants::{DEFAULT_RATING, PROVISIONAL_DEVIATION_THRESHOLD};
 use crate::util::rating::RatingExtra;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
@@ -130,7 +130,11 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
                 rating.format_rating(),
                 rating.rating,
                 rating.uncertainty,
-                if rating.is_provisional() { "; __this rating is provisional until deviation falls under 2.5__" } else { "" }
+                if rating.is_provisional() {
+                    format!("; __this rating is provisional until deviation falls under {PROVISIONAL_DEVIATION_THRESHOLD}__")
+                } else {
+                    String::from("")
+                }
             ), true)
             .field("last played", looked_up.last_played
                 .map(|dt| format!("<t:{}:f> ({})", dt.timestamp(), time_formatter.convert_chrono(dt, Utc::now())))
@@ -245,7 +249,7 @@ pub(crate) async fn register(ctx: Context<'_>, #[description = "Defaults to your
         Some(player) => {
             ctx.reply(
                 format!("cannot bind your discord account to a second player (currently bound to user {})",
-                              player.reference_no_discord()))
+                        player.reference_no_discord()))
                 .await?;
             return Ok(());
         }

@@ -4,6 +4,7 @@ use crate::util::rating::RatingExtra;
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
+use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -20,7 +21,7 @@ pub(crate) async fn leaderboard(
             "$project": {
                 "lb_rating": {
                     "$cond": {
-                        "if": {"$gt": ["$deviation", 2.5]},
+                        "if": {"$gt": ["$deviation", PROVISIONAL_DEVIATION_THRESHOLD]},
                         "then": {"$multiply": [{"$subtract": ["$rating", "$deviation"]}, 10]},
                         "else": {"$multiply": ["$rating", 10]},
                     }
@@ -31,7 +32,7 @@ pub(crate) async fn leaderboard(
         vec![agg_doc, sort_doc, new_root_doc]
     } else {
         let filter_doc = doc! {
-            "$match": {"deviation": {"$lte": 2.5}}
+            "$match": {"deviation": {"$lte": PROVISIONAL_DEVIATION_THRESHOLD}}
         };
         let agg_doc = doc! {
             "$project": {

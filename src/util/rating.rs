@@ -2,7 +2,7 @@ use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::SystemID;
 use crate::model::StandingEventInner::{ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty};
 use crate::model::{EventNumber, LeagueInfo, Player, StandingEvent, StandingEventInner};
-use crate::util::constants::{DEFAULT_RATING, TRUESKILL_CONFIG};
+use crate::util::constants::{DEFAULT_RATING, PROVISIONAL_DEVIATION_THRESHOLD, TRUESKILL_CONFIG};
 use crate::{BotError, BotVars};
 use bson::doc;
 use futures::StreamExt;
@@ -21,7 +21,7 @@ pub(crate) trait RatingExtra {
 
 impl RatingExtra for TrueSkillRating {
     fn is_provisional(&self) -> bool {
-        self.uncertainty - 2.5 > f64::EPSILON
+        self.uncertainty - PROVISIONAL_DEVIATION_THRESHOLD > f64::EPSILON
     }
 
     fn leaderboard_rating(&self) -> f64 {
