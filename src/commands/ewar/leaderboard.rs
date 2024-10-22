@@ -5,6 +5,7 @@ use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
 use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
+use crate::util::remove_markdown;
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -51,7 +52,7 @@ pub(crate) async fn leaderboard(
 
     let mut lb_lines = Vec::with_capacity(aggregate_players.len());
     for (ind, player) in aggregate_players.into_iter().enumerate() {
-        let mut line = format!("{}: {}", player.short_summary(), player.rating_struct().format_rating());
+        let mut line = format!("{}: {}", remove_markdown(&*player.username), player.rating_struct().format_rating());
         line = if player.rating_struct().is_provisional() { format!("~~{}~~", line) } else { line };
 
         lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
