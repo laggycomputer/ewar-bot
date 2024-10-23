@@ -6,9 +6,13 @@ use crate::{inactivity_decay_inner, BotError, Context};
 use bson::Bson::{Int64, Null};
 use bson::{doc, Bson, Document};
 use futures::TryStreamExt;
+use poise::CreateReply;
 use serde::de::DeserializeOwned;
+use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, ReactionType};
 use std::cmp::min;
 use std::error::Error;
+use std::time::Duration;
+use crate::util::base_embed;
 
 /// attempt to advance the approve pointer (be careful)
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
@@ -164,7 +168,7 @@ pub(crate) async fn do_decay(ctx: Context<'_>) -> Result<(), BotError> {
     Ok(())
 }
 
-/// remove the latest event from the record irreversibly
+/// league moderators: remove the latest event from the record irreversibly
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
 pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
     let mutex = ctx.data().core_state_lock.clone();
@@ -176,8 +180,44 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         .await?
         .expect("league_info struct missing");
 
+    let victim_event = match ctx.data().mongo
+        .collection::<StandingEvent>("events")
+        .find_one(doc! { "_id": available_event_number - 1 }).await? {
+        None => {
+            ctx.reply("latest event DNE; you have a major issue, fsck now").await?;
+            return Ok(());
+        }
+        Some(event) => event
+    };
+
+    let handle = ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .description(format!(
+                "**you are permanently removing event ID {}:**\n> {}\n**from the record!** please confirm (5 seconds)",
+                victim_event._id, victim_event.short_summary(&ctx.data().mongo).await?)))
+        .components(vec![
+            CreateActionRow::Buttons(vec![
+                CreateButton::new("pop_event_confirm")
+                    .emoji(ReactionType::Unicode(String::from("✅")))
+            ])
+        ])
+        .reply(true)
+    ).await?;
+
+    match handle.message().await?.await_component_interaction(&ctx.serenity_context().shard)
+        .author_id(ctx.author().id)
+        .custom_ids(vec![String::from("pop_event_confirm")])
+        .timeout(Duration::from_secs(10)).await {
+        None => {
+            ctx.reply("ok, nevermind then").await?;
+            return Ok(());
+        }
+        Some(ixn) => ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge).await?
+    };
+
+    // yes, this is declared twice but no big deal tbh
     let evt = match ctx.data().mongo.collection::<StandingEvent>("events")
-        .find_one_and_delete(doc! {"_id": available_event_number - 1}).await? {
+        .find_one_and_delete(doc! { "_id": victim_event._id }).await? {
         None => {
             ctx.reply("free event number bad?").await?;
             return Ok(());
@@ -185,7 +225,7 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         Some(evt) => {
             let update_doc = if let GameEnd(_) = evt.inner {
                 doc! {
-                    "$inc": { "available_event_number": -1, "available_game_id": -1 },
+                    "$inc": {"available_event_number": -1, "available_game_id": -1},
                     "$min": { "first_unreviewed_event_number": evt._id }
                 }
             } else {
