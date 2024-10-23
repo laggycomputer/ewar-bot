@@ -62,7 +62,7 @@ async fn inactivity_decay_inner(mongo: &Database) -> Result<(), BotError> {
 
 struct BotVars {
     mongo: mongodb::Database,
-    update_ratings_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>,
+    core_state_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>,
     league_moderators: HashSet<UserId>,
 }
 
@@ -136,6 +136,7 @@ async fn main() {
                 maint::fsck(),
                 maint::force_reprocess(),
                 maint::do_decay(),
+                maint::pop_event(),
                 ewar::event::event(),
                 ewar::user::user(),
                 ewar::user::register(),
@@ -176,7 +177,7 @@ async fn main() {
 
                 Ok(BotVars {
                     mongo,
-                    update_ratings_lock: Default::default(),
+                    core_state_lock: Default::default(),
                     league_moderators: moderator_discord_ids.into_iter().collect(),
                 })
             })

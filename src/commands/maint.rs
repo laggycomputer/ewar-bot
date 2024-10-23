@@ -163,3 +163,47 @@ pub(crate) async fn do_decay(ctx: Context<'_>) -> Result<(), BotError> {
 
     Ok(())
 }
+
+/// remove the latest event from the record irreversibly
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
+pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
+    let mutex = ctx.data().core_state_lock.clone();
+    mutex.lock().await;
+
+    let LeagueInfo { available_event_number, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one(doc! {})
+        .await?
+        .expect("league_info struct missing");
+
+    let evt = match ctx.data().mongo.collection::<StandingEvent>("events")
+        .find_one_and_delete(doc! {"_id": available_event_number - 1}).await? {
+        None => {
+            ctx.reply("free event number bad?").await?;
+            return Ok(());
+        }
+        Some(evt) => {
+            let update_doc = if let GameEnd(_) = evt.inner {
+                doc! {
+                    "$inc": { "available_event_number": -1, "available_game_id": -1 },
+                    "$min": { "first_unreviewed_event_number": evt._id }
+                }
+            } else {
+                doc! {
+                    "$inc": { "available_event_number": -1 },
+                    "$min": { "first_unreviewed_event_number": evt._id }
+                }
+            };
+
+            ctx.data().mongo
+                .collection::<LeagueInfo>("league_info")
+                .update_one(doc! {}, update_doc)
+                .await?;
+
+            evt
+        }
+    };
+
+    ctx.reply(format!("ok, event {} is gone, need to reprocess to finish", evt._id)).await?;
+    Ok(())
+}

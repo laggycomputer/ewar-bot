@@ -78,7 +78,7 @@ pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueS
 /// the "approve pointer" in the function name, or the first unreviewed event, is advanced until it actually points to an unreviewed event
 /// along the way, we process the results of any standing events we find
 pub(crate) async fn advance_approve_pointer(data: &BotVars, stop_before: Option<EventNumber>) -> Result<EventNumber, BotError> {
-    let mutex = data.update_ratings_lock.clone();
+    let mutex = data.core_state_lock.clone();
     mutex.lock().await;
 
     let league_info_collection = data.mongo.collection::<LeagueInfo>("league_info");
