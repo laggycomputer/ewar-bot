@@ -145,6 +145,7 @@ async fn main() {
                 ewar::moderation::unreviewed(),
                 ewar::moderation::penalize(),
                 ewar::moderation::force_register(),
+                ewar::moderation::lb_blacklist(),
                 ewar::leaderboard::leaderboard(),
             ],
             prefix_options: PrefixFrameworkOptions {

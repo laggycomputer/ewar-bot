@@ -1,5 +1,5 @@
-use crate::commands::ewar::user::{register_user, try_lookup_player};
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
+use crate::commands::ewar::user::{register_user, try_lookup_player};
 use crate::model::StandingEventInner::{GameEnd, Penalty};
 use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
 use crate::util::checks::{has_system_account, is_league_moderator};
@@ -204,5 +204,111 @@ pub(crate) async fn penalize(
     ctx.reply(format!("ok, this is event number {available_event_number} and will take effect as the approve pointer moves forward")).await?;
     advance_approve_pointer(ctx.data(), None).await?;
 
+    Ok(())
+}
+
+#[poise::command(prefix_command, slash_command, subcommands("list", "add", "remove"), check = is_league_moderator
+)]
+pub(crate) async fn lb_blacklist(ctx: Context<'_>) -> Result<(), BotError> {
+    ctx.reply("base command is noop, try a subcommand").await?;
+
+    Ok(())
+}
+
+/// league moderators: see who is leaderboard blacklisted
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
+pub(crate) async fn list(ctx: Context<'_>) -> Result<(), BotError> {
+    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one(doc! {})
+        .await?
+        .expect("league_info struct missing");
+
+    if leaderboard_blacklist.is_empty() {
+        ctx.reply("nobody is blacklisted right now").await?;
+        return Ok(())
+    }
+
+    let mut desc = Vec::with_capacity(leaderboard_blacklist.len());
+    for player_id in leaderboard_blacklist {
+        desc.push(
+            format!("* {}",
+                    try_lookup_player(&ctx.data().mongo, SystemID(player_id))
+                        .await?.unwrap()
+                        .short_summary()));
+    };
+
+    ctx.send(CreateReply::default()
+        .embed(base_embed(ctx)
+            .description(desc.join("\n"))))
+        .await?;
+    Ok(())
+}
+
+/// league moderators: prevent someone from showing on leaderboard
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
+pub(crate) async fn add(
+    ctx: Context<'_>,
+    #[description = "ID of player to blacklist"] target: PlayerID,
+) -> Result<(), BotError> {
+    let summary = match try_lookup_player(&ctx.data().mongo, SystemID(target)).await? {
+        None => {
+            ctx.reply("can't find that user; who is that?").await?;
+            return Ok(());
+        }
+        Some(user) => user.short_summary()
+    };
+
+    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one(doc! {})
+        .await?
+        .expect("league_info struct missing");
+
+    if leaderboard_blacklist.contains(&target) {
+        ctx.reply("that person is already blacklisted").await?;
+        return Ok(());
+    }
+
+    ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .update_one(doc! {}, doc! {"$addToSet": {"leaderboard_blacklist": target}})
+        .await?;
+
+    ctx.reply(format!("ok, {} now blacklisted from leaderboard", summary)).await?;
+    Ok(())
+}
+
+/// league moderators: un-blacklist someone from leaderboard
+#[poise::command(prefix_command, slash_command, check = is_league_moderator)]
+pub(crate) async fn remove(
+    ctx: Context<'_>,
+    #[description = "ID of player to blacklist"] target: PlayerID,
+) -> Result<(), BotError> {
+    let summary = match try_lookup_player(&ctx.data().mongo, SystemID(target)).await? {
+        None => {
+            ctx.reply("can't find that user; who is that?").await?;
+            return Ok(());
+        }
+        Some(user) => user.short_summary()
+    };
+
+    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one(doc! {})
+        .await?
+        .expect("league_info struct missing");
+
+    if !leaderboard_blacklist.contains(&target) {
+        ctx.reply("that person isn't blacklisted though").await?;
+        return Ok(());
+    }
+
+    ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .update_one(doc! {}, doc! {"$pull": {"leaderboard_blacklist": target}})
+        .await?;
+
+    ctx.reply(format!("ok, {} no longer blacklisted from leaderboard", summary)).await?;
     Ok(())
 }

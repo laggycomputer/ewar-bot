@@ -1,11 +1,12 @@
-use crate::model::Player;
+use crate::model::{LeagueInfo, Player};
+use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
 use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::util::rating::RatingExtra;
+use crate::util::remove_markdown;
 use crate::{BotError, Context};
 use bson::doc;
 use futures::TryStreamExt;
-use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
-use crate::util::remove_markdown;
+use itertools::Itertools;
 
 /// see the highest rated players
 #[poise::command(prefix_command, slash_command)]
@@ -14,6 +15,12 @@ pub(crate) async fn leaderboard(
     #[description = "Include players with provisional ratings"] include_provisional: Option<bool>,
 ) -> Result<(), BotError> {
     ctx.defer().await?;
+
+    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+        .collection::<LeagueInfo>("league_info")
+        .find_one(doc! {})
+        .await?
+        .expect("league_info struct missing");
 
     let sort_doc = doc! {"$sort": { "lb_rating": -1 }};
     let new_root_doc = doc! {"$replaceRoot": {"newRoot": "$inner"}};
@@ -43,7 +50,10 @@ pub(crate) async fn leaderboard(
         };
         vec![filter_doc, agg_doc, sort_doc, new_root_doc]
     }).with_type::<Player>().await?
-        .try_collect::<Vec<_>>().await?;
+        .try_collect::<Vec<_>>().await?
+        .into_iter()
+        .filter(|p| !leaderboard_blacklist.contains(&p._id))
+        .collect_vec();
 
     if aggregate_players.is_empty() {
         ctx.reply("no users found").await?;

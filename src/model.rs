@@ -13,6 +13,7 @@ pub(crate) struct LeagueInfo {
     pub(crate) available_game_id: GameID,
     pub(crate) available_event_number: EventNumber,
     pub(crate) available_player_id: PlayerID,
+    pub(crate) leaderboard_blacklist: Vec<PlayerID>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
