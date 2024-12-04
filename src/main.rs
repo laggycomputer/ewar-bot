@@ -86,7 +86,7 @@ async fn main() {
     let register_globally = env::var("EWAR_REGISTER_GLOBAL").is_ok();
     let guilds_to_register_in = match env::var("EWAR_REGISTER_LOCAL").is_ok() {
         true => env::var("EWAR_GUILDS")
-            .expect("need guild IDs to register in")
+            .unwrap_or(String::from(""))
             .split(",")
             .map(String::from)
             .map(|s| String::from(s.trim()))
