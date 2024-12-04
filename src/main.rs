@@ -1,16 +1,16 @@
-mod handler;
-mod util;
 mod commands;
+mod handler;
 mod model;
+mod util;
 
 use crate::commands::{ewar, maint, meta};
 use crate::model::StandingEventInner::InactivityDecay;
 use crate::model::{ApprovalStatus, LeagueInfo, Player, StandingEvent};
 use chrono::{TimeDelta, Utc};
-use clap::ValueHint;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use mongodb::bson::doc;
+use mongodb::Database;
 use pluralizer::pluralize;
 use poise::{FrameworkOptions, PrefixFrameworkOptions};
 use serenity::all::GuildId;
@@ -18,50 +18,60 @@ use serenity::all::{GatewayIntents, UserId};
 use serenity::Client;
 use std::collections::HashSet;
 use std::default::Default;
-use std::fs;
-use std::path::PathBuf;
-use mongodb::Database;
+use std::env;
 use tokio_cron::{daily, Job, Scheduler};
-use yaml_rust2::YamlLoader;
 
 async fn inactivity_decay_job(mongo_uri: String, mongo_db: String) -> Result<(), BotError> {
-    let mongo = mongodb::Client::with_uri_str(mongo_uri).await?.database(&*mongo_db);
+    let mongo = mongodb::Client::with_uri_str(mongo_uri)
+        .await?
+        .database(&*mongo_db);
 
     inactivity_decay_inner(&mongo).await
 }
 
 async fn inactivity_decay_inner(mongo: &Database) -> Result<(), BotError> {
-    let victims = mongo.collection::<Player>("players").find(doc! {
-        "last_played": {
-            "$lt": bson::DateTime::from_chrono(Utc::now() - TimeDelta::days(7))
-        }
-    }).await?
+    let victims = mongo
+        .collection::<Player>("players")
+        .find(doc! {
+            "last_played": {
+                "$lt": bson::DateTime::from_chrono(Utc::now() - TimeDelta::days(7))
+            }
+        })
+        .await?
         .try_filter_map(|p| async move { Ok(Some(p._id)) })
-        .try_collect::<Vec<_>>().await?;
+        .try_collect::<Vec<_>>()
+        .await?;
 
-    let LeagueInfo { available_event_number, .. } = mongo
+    let LeagueInfo {
+        available_event_number,
+        ..
+    } = mongo
         .collection::<LeagueInfo>("league_info")
-        .find_one_and_update(
-            doc! {},
-            doc! { "$inc": { "available_event_number": 1 } })
+        .find_one_and_update(doc! {}, doc! { "$inc": { "available_event_number": 1 } })
         .await?
         .expect("league_info struct missing");
 
-    mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
-        _id: available_event_number,
-        approval_status: Some(ApprovalStatus {
-            approved: true,
-            reviewer: None,
-        }),
-        inner: InactivityDecay { victims, delta_deviation: 0.1 },
-        when: Utc::now(),
-    }).await?;
+    mongo
+        .collection::<StandingEvent>("events")
+        .insert_one(StandingEvent {
+            _id: available_event_number,
+            approval_status: Some(ApprovalStatus {
+                approved: true,
+                reviewer: None,
+            }),
+            inner: InactivityDecay {
+                victims,
+                delta_deviation: 0.1,
+            },
+            when: Utc::now(),
+        })
+        .await?;
 
     Ok(())
 }
 
 struct BotVars {
-    mongo: mongodb::Database,
+    mongo: Database,
     core_state_lock: async_std::sync::Arc<async_std::sync::Mutex<()>>,
     league_moderators: HashSet<UserId>,
 }
@@ -112,7 +122,9 @@ async fn main() {
             async move {
                 match inactivity_decay_job(mongo_uri, mongo_db).await.err() {
                     None => {}
-                    Some(err) => { eprintln!("{}", err) }
+                    Some(err) => {
+                        eprintln!("{}", err)
+                    }
                 }
             }
         }));
@@ -148,7 +160,8 @@ async fn main() {
         })
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
-                let commands_count = pluralize("command", framework.options().commands.len() as isize, true);
+                let commands_count =
+                    pluralize("command", framework.options().commands.len() as isize, true);
 
                 if register_globally {
                     poise::builtins::register_globally(ctx, &framework.options().commands).await?;
@@ -159,12 +172,18 @@ async fn main() {
 
                 if !guilds_to_register_in.is_empty() {
                     for id in guilds_to_register_in.iter() {
-                        poise::builtins::register_in_guild(ctx, &framework.options().commands, *id).await?;
+                        poise::builtins::register_in_guild(ctx, &framework.options().commands, *id)
+                            .await?;
                     }
-                    println!("registered {commands_count} locally in {}", pluralize("guild", guilds_to_register_in.len() as isize, true));
+                    println!(
+                        "registered {commands_count} locally in {}",
+                        pluralize("guild", guilds_to_register_in.len() as isize, true)
+                    );
                 }
 
-                let mongo = mongodb::Client::with_uri_str(mongo_uri).await?.database(&*mongo_db);
+                let mongo = mongodb::Client::with_uri_str(mongo_uri)
+                    .await?
+                    .database(&*mongo_db);
                 mongo.run_command(doc! { "ping": 1 }).await?;
                 println!("mongo ok");
 
