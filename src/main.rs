@@ -7,6 +7,7 @@ use crate::commands::{ewar, maint, meta};
 use crate::model::StandingEventInner::InactivityDecay;
 use crate::model::{ApprovalStatus, LeagueInfo, Player, StandingEvent};
 use chrono::{TimeDelta, Utc};
+use clap::ValueHint;
 use futures::TryStreamExt;
 use itertools::Itertools;
 use mongodb::bson::doc;
@@ -19,6 +20,7 @@ use serenity::Client;
 use std::collections::HashSet;
 use std::default::Default;
 use std::env;
+use std::path::PathBuf;
 use tokio_cron::{daily, Job, Scheduler};
 
 async fn inactivity_decay_job(mongo_uri: String, mongo_db: String) -> Result<(), BotError> {
@@ -79,9 +81,14 @@ struct BotVars {
 #[tokio::main]
 async fn main() {
     let cmd = clap::command!("ewar-bot")
-        .about("Discord bot for handling ranked Egyptian War backed by TrueSkill");
+        .about("Discord bot for handling ranked Egyptian War backed by TrueSkill")
+        .arg(clap::arg!(<"config"> ".env file path")
+            .value_parser(clap::value_parser!(PathBuf))
+            .value_hint(ValueHint::FilePath)
+            .default_value(".env"));
 
-    let _ = cmd.get_matches();
+    let args = cmd.get_matches();
+    dotenv::from_filename(args.get_one::<PathBuf>("config").expect("config file is bad path?")).ok();
 
     let register_globally = env::var("EWAR_REGISTER_GLOBAL").is_ok();
     let guilds_to_register_in = match env::var("EWAR_REGISTER_LOCAL").is_ok() {
