@@ -69,46 +69,38 @@ struct BotVars {
 #[tokio::main]
 async fn main() {
     let cmd = clap::command!("ewar-bot")
-        .about("Discord bot for handling ranked Egyptian War backed by TrueSkill")
-        .arg(clap::arg!(<"config"> "config file path")
-            .value_parser(clap::value_parser!(PathBuf))
-            .value_hint(ValueHint::FilePath));
+        .about("Discord bot for handling ranked Egyptian War backed by TrueSkill");
 
-    let args = cmd.get_matches();
+    let _ = cmd.get_matches();
 
-    let config_path = args.get_one::<PathBuf>("config").expect("config file is bad path?");
-    let config_doc = &YamlLoader::load_from_str(
-        &*fs::read_to_string(config_path).expect("can't open config file")
-    ).expect("can't parse config file")[0];
-
-    let register_globally = config_doc["register_commands"]["global"].as_bool().expect("bad global register setting");
-    let guilds_to_register_in = if config_doc["register_commands"]["local"]["enabled"].as_bool().expect("bad local register setting") {
-        config_doc["register_commands"]["local"]["guilds"]
-            .as_vec().iter()
-            .next().expect("private guilds array is empty")
-            .iter().map(|id|
-            GuildId::from(
-                id.as_str().expect("bad register guild id")
-                    .parse::<u64>().expect("guild id not valid snowflake")
-            )
-        ).collect_vec()
-    } else {
-        vec![]
+    let register_globally = env::var("EWAR_REGISTER_GLOBAL").is_ok();
+    let guilds_to_register_in = match env::var("EWAR_REGISTER_LOCAL").is_ok() {
+        true => env::var("EWAR_GUILDS")
+            .expect("need guild IDs to register in")
+            .split(",")
+            .map(String::from)
+            .map(|s| String::from(s.trim()))
+            .map(|id| GuildId::from(id.parse::<u64>().expect("guild id not valid snowflake")))
+            .collect_vec(),
+        false => vec![],
     };
 
-    let mongo_uri = config_doc["creds"]["mongo"]["uri"].as_str().expect("bad mongo uri").to_string();
-    let mongo_db = config_doc["creds"]["mongo"]["db"].as_str().expect("bad mongo db").to_string();
+    let mongo_uri = env::var("EWAR_MONGO_URI").expect("bad mongo uri");
+    let mongo_db = env::var("EWAR_MONGO_DB").expect("bad mongo db");
 
-    let moderator_discord_ids =
-        config_doc["league"]["moderator_discords"]
-            .as_vec().iter()
-            .next().expect("moderator discord id array is empty (specify one empty element?)")
-            .iter().map(|id|
+    let moderator_discord_ids = env::var("EWAR_LEAGUE_MODERATORS")
+        .unwrap_or(String::from(""))
+        .split(",")
+        .map(String::from)
+        // dumb allocation but meh
+        .map(|s| String::from(s.trim()))
+        .map(|id| {
             UserId::from(
-                id.as_str().expect("bad league moderator discord id")
-                    .parse::<u64>().expect("league moderator discord id not valid snowflake")
+                id.parse::<u64>()
+                    .expect("league moderator discord id not valid snowflake"),
             )
-        ).collect_vec();
+        })
+        .collect_vec();
 
     let mut scheduler = Scheduler::local();
     {
@@ -185,7 +177,7 @@ async fn main() {
         })
         .build();
 
-    let token = config_doc["token"].as_str().expect("discord client token missing");
+    let token = env::var("EWAR_DISCORD_TOKEN").expect("no discord token set");
     let mut client = Client::builder(&token, GatewayIntents::all())
         .event_handler(handler::EWarBotHandler)
         .framework(framework)
