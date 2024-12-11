@@ -85,6 +85,7 @@ async fn main() {
         .arg(clap::arg!(<"config"> ".env file path")
             .value_parser(clap::value_parser!(PathBuf))
             .value_hint(ValueHint::FilePath)
+            .required(false)
             .default_value(".env"));
 
     let args = cmd.get_matches();
