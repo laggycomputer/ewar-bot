@@ -7,4 +7,5 @@ db["league_info"].insertOne({
     "available_game_id": 0,
     "available_event_number": 0,
     "available_player_id": 1,
+    "leaderboard_blacklist": [],
 })
