@@ -73,7 +73,7 @@ pub(crate) struct StandingEvent {
     pub(crate) _id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) inner: StandingEventInner,
-    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    #[serde(with = "bson::serde_helpers::datetime::FromChrono04DateTime")]
     pub(crate) when: chrono::DateTime<Utc>,
 }
 
