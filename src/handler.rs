@@ -1,6 +1,8 @@
 use crate::util::bot_invite_url;
-use rand::seq::SliceRandom;
-use serenity::all::{ActivityData, ActivityType, Context, EventHandler, OnlineStatus, Permissions, Ready};
+use rand::prelude::IndexedRandom;
+use serenity::all::{
+    ActivityData, ActivityType, Context, EventHandler, OnlineStatus, Permissions, Ready,
+};
 use serenity::async_trait;
 use std::time::Duration;
 use tokio::time;
@@ -10,9 +12,16 @@ pub(crate) struct EWarBotHandler;
 #[async_trait]
 impl EventHandler for EWarBotHandler {
     async fn ready(&self, ctx: Context, ready_info: Ready) {
-        println!("ok, connected as {} (UID {})", ready_info.user.tag(), ready_info.user.id);
+        println!(
+            "ok, connected as {} (UID {})",
+            ready_info.user.tag(),
+            ready_info.user.id
+        );
         println!("using discord API version {}", ready_info.version);
-        println!("invite link: {}", bot_invite_url(ready_info.user.id, Permissions::empty(), true));
+        println!(
+            "invite link: {}",
+            bot_invite_url(ready_info.user.id, Permissions::empty(), true)
+        );
 
         tokio::spawn(async move {
             let mut interval = time::interval(Duration::from_secs(120));
@@ -34,10 +43,10 @@ impl EventHandler for EWarBotHandler {
                         name: String::from("bazinga"),
                         kind: ActivityType::Custom,
 
-                        state: Some(String::from(*status.choose(&mut rand::thread_rng()).unwrap())),
+                        state: Some(String::from(*status.choose(&mut rand::rng()).unwrap())),
                         url: None,
                     }),
-                    OnlineStatus::Idle
+                    OnlineStatus::Idle,
                 );
                 interval.tick().await;
             }

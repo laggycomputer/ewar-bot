@@ -10,21 +10,32 @@ pub(crate) async fn is_league_moderator(ctx: Context<'_>) -> Result<bool, BotErr
     let cond = _is_league_moderator(ctx).await?;
 
     if !cond {
-        ctx.send(CreateReply::default()
-            .content(":x: must be league moderator to do this")
-            .ephemeral(true)).await?;
+        ctx.send(
+            CreateReply::default()
+                .content(":x: must be league moderator to do this")
+                .ephemeral(true),
+        )
+        .await?;
     }
 
     Ok(cond)
 }
 
 pub(crate) async fn has_system_account(ctx: Context<'_>) -> Result<bool, BotError> {
-    let cond = try_lookup_player(&ctx.data().mongo, UserLookupType::DiscordID(ctx.author().id.get())).await?.is_some();
+    let cond = try_lookup_player(
+        &ctx.data().mongo,
+        UserLookupType::DiscordID(ctx.author().id.get()),
+    )
+    .await?
+    .is_some();
 
     if !cond {
-        ctx.send(CreateReply::default()
-            .content(":x: do you have an account on the system?")
-            .ephemeral(true)).await?;
+        ctx.send(
+            CreateReply::default()
+                .content(":x: do you have an account on the system?")
+                .ephemeral(true),
+        )
+        .await?;
     }
 
     Ok(cond)

@@ -6,12 +6,15 @@ use crate::util::checks::{has_system_account, is_league_moderator};
 use crate::util::rating::advance_approve_pointer;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
-use bson::{doc, Bson};
 use chrono::Utc;
 use futures::TryStreamExt;
 use itertools::Itertools;
+use mongodb::bson::{doc, Bson};
 use poise::CreateReply;
-use serenity::all::{CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId, User};
+use serenity::all::{
+    CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId,
+    User,
+};
 use std::time::Duration;
 
 /// League moderators: review game for league record; approve or reject
@@ -20,61 +23,92 @@ use std::time::Duration;
 pub(crate) async fn review(
     ctx: Context<'_>,
     #[description = "ID of game to approve"] game_id: GameID,
-    #[description = "whether to accept or reject this game"] approved: bool) -> Result<(), BotError> {
-    let corresponding_event = match ctx.data().mongo.collection::<StandingEvent>("events").find_one(
-        doc! { "inner.GameEnd.game_id": game_id }).await? {
+    #[description = "whether to accept or reject this game"] approved: bool,
+) -> Result<(), BotError> {
+    let corresponding_event = match ctx
+        .data()
+        .mongo
+        .collection::<StandingEvent>("events")
+        .find_one(doc! { "inner.GameEnd.game_id": game_id })
+        .await?
+    {
         None => {
-            ctx.send(CreateReply::default()
-                .content(":x: that game DNE")
-                .ephemeral(true)).await?;
+            ctx.send(
+                CreateReply::default()
+                    .content(":x: that game DNE")
+                    .ephemeral(true),
+            )
+            .await?;
             return Ok(());
         }
-        Some(game) => game
+        Some(game) => game,
     };
 
-    let StandingEvent { inner: GameEnd(Game { .. }), .. } = corresponding_event else {
-        return Err(format!("event resembling game with game ID {game_id} is invalid").into())
+    let StandingEvent {
+        inner: GameEnd(Game { .. }),
+        ..
+    } = corresponding_event
+    else {
+        return Err(format!("event resembling game with game ID {game_id} is invalid").into());
     };
 
     if corresponding_event.approval_status.is_some() {
-        ctx.send(CreateReply::default()
-            .content(":x: that game already reviewed")
-            .ephemeral(true)).await?;
+        ctx.send(
+            CreateReply::default()
+                .content(":x: that game already reviewed")
+                .ephemeral(true),
+        )
+        .await?;
         return Ok(());
     }
 
-    let player = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?.unwrap();
+    let player = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get()))
+        .await?
+        .unwrap();
 
-    let StandingEvent { _id: event_number, .. } = ctx.data().mongo.collection::<StandingEvent>("events").find_one_and_update(
-        doc! { "_id": corresponding_event._id },
-        doc! {
-            "$set": {
-                "approval_status": {
-                    "approved": approved,
-                    "reviewer": Some(player._id),
+    let StandingEvent {
+        _id: event_number, ..
+    } = ctx
+        .data()
+        .mongo
+        .collection::<StandingEvent>("events")
+        .find_one_and_update(
+            doc! { "_id": corresponding_event._id },
+            doc! {
+                "$set": {
+                    "approval_status": {
+                        "approved": approved,
+                        "reviewer": Some(player._id),
+                    }
                 }
-            }
-        })
+            },
+        )
         .await?
         .expect("standing event magically disappeared");
 
     if approved {
-        ctx.send(CreateReply::default()
-            .content(format!("approved game {game_id} into league record (event number {event_number})"))).await?;
+        ctx.send(CreateReply::default().content(format!(
+            "approved game {game_id} into league record (event number {event_number})"
+        )))
+        .await?;
     } else {
-        ctx.send(CreateReply::default()
-            .content(format!("rejected game {game_id}, event number {event_number}"))).await?;
+        ctx.send(CreateReply::default().content(format!(
+            "rejected game {game_id}, event number {event_number}"
+        )))
+        .await?;
     }
 
     advance_approve_pointer(ctx.data(), None).await?;
     Ok(())
 }
 
-
 /// League moderators: check for unreviewed games
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
 pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
-    let find = ctx.data().mongo.collection::<StandingEvent>("events")
+    let find = ctx
+        .data()
+        .mongo
+        .collection::<StandingEvent>("events")
         .find(doc! {
             "inner.GameEnd": { "$exists": true },
             "approval_status": Bson::Null,
@@ -91,14 +125,25 @@ pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
 
     let mut event_lines = Vec::with_capacity(events.len());
     for evt in events {
-        event_lines.push(format!("#{} - {}", evt._id, evt.short_summary(&ctx.data().mongo).await?));
+        event_lines.push(format!(
+            "#{} - {}",
+            evt._id,
+            evt.short_summary(&ctx.data().mongo).await?
+        ));
     }
 
-    ctx.send(CreateReply::default()
-        .embed(base_embed(ctx)
-            .description(event_lines.into_iter().join("\n"))
-            .footer(CreateEmbedFooter::new("only showing earliest 10 unreviewed games")))
-        .reply(true)).await?;
+    ctx.send(
+        CreateReply::default()
+            .embed(
+                base_embed(ctx)
+                    .description(event_lines.into_iter().join("\n"))
+                    .footer(CreateEmbedFooter::new(
+                        "only showing earliest 10 unreviewed games",
+                    )),
+            )
+            .reply(true),
+    )
+    .await?;
 
     Ok(())
 }
@@ -111,20 +156,30 @@ pub(crate) async fn force_register(
     #[description = "username to give them"] victim: Option<User>,
 ) -> Result<(), BotError> {
     if victim.is_some() {
-        match try_lookup_player(&ctx.data().mongo, DiscordID(victim.as_ref().unwrap().id.get())).await? {
+        match try_lookup_player(
+            &ctx.data().mongo,
+            DiscordID(victim.as_ref().unwrap().id.get()),
+        )
+        .await?
+        {
             Some(player) => {
-                ctx.reply(
-                    format!("cannot bind that discord user to a second player (currently bound to user {})",
-                            player.reference_no_discord()))
-                    .await?;
+                ctx.reply(format!(
+                    "cannot bind that discord user to a second player (currently bound to user {})",
+                    player.reference_no_discord()
+                ))
+                .await?;
                 return Ok(());
             }
             None => {}
         };
     }
 
-    if try_lookup_player(&ctx.data().mongo, Username(&*username)).await?.is_some() {
-        ctx.reply(format!("user by name {username} already exists")).await?;
+    if try_lookup_player(&ctx.data().mongo, Username(&*username))
+        .await?
+        .is_some()
+    {
+        ctx.reply(format!("user by name {username} already exists"))
+            .await?;
         return Ok(());
     }
 
@@ -132,7 +187,11 @@ pub(crate) async fn force_register(
 
     let new_player = register_user(&ctx.data().mongo, victim.as_ref(), username).await?;
 
-    ctx.reply(format!("ok, new user {} created", new_player.reference_no_discord())).await?;
+    ctx.reply(format!(
+        "ok, new user {} created",
+        new_player.reference_no_discord()
+    ))
+    .await?;
     Ok(())
 }
 
@@ -150,7 +209,7 @@ pub(crate) async fn penalize(
             ctx.reply(":x: i don't know who that is").await?;
             return Ok(());
         }
-        Some(victim) => victim
+        Some(victim) => victim,
     };
 
     let handle = ctx.send(CreateReply::default()
@@ -166,40 +225,58 @@ pub(crate) async fn penalize(
         .reply(true)
     ).await?;
 
-    match handle.message().await?.await_component_interaction(&ctx.serenity_context().shard)
+    match handle
+        .message()
+        .await?
+        .await_component_interaction(&ctx.serenity_context().shard)
         .author_id(ctx.author().id)
         .custom_ids(vec![String::from("penalize_confirm")])
-        .timeout(Duration::from_secs(10)).await {
+        .timeout(Duration::from_secs(10))
+        .await
+    {
         None => {
             ctx.reply("ok, nevermind then").await?;
             return Ok(());
         }
-        Some(ixn) => ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge).await?
+        Some(ixn) => {
+            ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge)
+                .await?
+        }
     };
 
-    let responsible_moderator = try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?.unwrap();
+    let responsible_moderator =
+        try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get()))
+            .await?
+            .unwrap();
 
-    let LeagueInfo { available_event_number, .. } = ctx.data().mongo
+    let LeagueInfo {
+        available_event_number,
+        ..
+    } = ctx
+        .data()
+        .mongo
         .collection::<LeagueInfo>("league_info")
-        .find_one_and_update(
-            doc! {},
-            doc! { "$inc": { "available_event_number": 1, } })
+        .find_one_and_update(doc! {}, doc! { "$inc": { "available_event_number": 1, } })
         .await?
         .expect("league_info struct missing");
 
-    ctx.data().mongo.collection::<StandingEvent>("events").insert_one(StandingEvent {
-        _id: available_event_number,
-        approval_status: Some(ApprovalStatus {
-            approved: true,
-            reviewer: Some(responsible_moderator._id),
-        }),
-        inner: Penalty {
-            victims: vec![target],
-            delta_rating: -amount,
-            reason,
-        },
-        when: Utc::now(),
-    }).await?;
+    ctx.data()
+        .mongo
+        .collection::<StandingEvent>("events")
+        .insert_one(StandingEvent {
+            _id: available_event_number,
+            approval_status: Some(ApprovalStatus {
+                approved: true,
+                reviewer: Some(responsible_moderator._id),
+            }),
+            inner: Penalty {
+                victims: vec![target],
+                delta_rating: -amount,
+                reason,
+            },
+            when: Utc::now(),
+        })
+        .await?;
 
     ctx.reply(format!("ok, this is event number {available_event_number} and will take effect as the approve pointer moves forward")).await?;
     advance_approve_pointer(ctx.data(), None).await?;
@@ -218,7 +295,12 @@ pub(crate) async fn lb_blacklist(ctx: Context<'_>) -> Result<(), BotError> {
 /// league moderators: see who is leaderboard blacklisted
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]
 pub(crate) async fn list(ctx: Context<'_>) -> Result<(), BotError> {
-    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+    let LeagueInfo {
+        leaderboard_blacklist,
+        ..
+    } = ctx
+        .data()
+        .mongo
         .collection::<LeagueInfo>("league_info")
         .find_one(doc! {})
         .await?
@@ -226,21 +308,21 @@ pub(crate) async fn list(ctx: Context<'_>) -> Result<(), BotError> {
 
     if leaderboard_blacklist.is_empty() {
         ctx.reply("nobody is blacklisted right now").await?;
-        return Ok(())
+        return Ok(());
     }
 
     let mut desc = Vec::with_capacity(leaderboard_blacklist.len());
     for player_id in leaderboard_blacklist {
-        desc.push(
-            format!("* {}",
-                    try_lookup_player(&ctx.data().mongo, SystemID(player_id))
-                        .await?.unwrap()
-                        .short_summary()));
-    };
+        desc.push(format!(
+            "* {}",
+            try_lookup_player(&ctx.data().mongo, SystemID(player_id))
+                .await?
+                .unwrap()
+                .short_summary()
+        ));
+    }
 
-    ctx.send(CreateReply::default()
-        .embed(base_embed(ctx)
-            .description(desc.join("\n"))))
+    ctx.send(CreateReply::default().embed(base_embed(ctx).description(desc.join("\n"))))
         .await?;
     Ok(())
 }
@@ -256,10 +338,15 @@ pub(crate) async fn add(
             ctx.reply("can't find that user; who is that?").await?;
             return Ok(());
         }
-        Some(user) => user.short_summary()
+        Some(user) => user.short_summary(),
     };
 
-    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+    let LeagueInfo {
+        leaderboard_blacklist,
+        ..
+    } = ctx
+        .data()
+        .mongo
         .collection::<LeagueInfo>("league_info")
         .find_one(doc! {})
         .await?
@@ -270,12 +357,17 @@ pub(crate) async fn add(
         return Ok(());
     }
 
-    ctx.data().mongo
+    ctx.data()
+        .mongo
         .collection::<LeagueInfo>("league_info")
-        .update_one(doc! {}, doc! {"$addToSet": {"leaderboard_blacklist": target}})
+        .update_one(
+            doc! {},
+            doc! {"$addToSet": {"leaderboard_blacklist": target}},
+        )
         .await?;
 
-    ctx.reply(format!("ok, {} now blacklisted from leaderboard", summary)).await?;
+    ctx.reply(format!("ok, {} now blacklisted from leaderboard", summary))
+        .await?;
     Ok(())
 }
 
@@ -290,10 +382,15 @@ pub(crate) async fn remove(
             ctx.reply("can't find that user; who is that?").await?;
             return Ok(());
         }
-        Some(user) => user.short_summary()
+        Some(user) => user.short_summary(),
     };
 
-    let LeagueInfo { leaderboard_blacklist, .. } = ctx.data().mongo
+    let LeagueInfo {
+        leaderboard_blacklist,
+        ..
+    } = ctx
+        .data()
+        .mongo
         .collection::<LeagueInfo>("league_info")
         .find_one(doc! {})
         .await?
@@ -304,11 +401,16 @@ pub(crate) async fn remove(
         return Ok(());
     }
 
-    ctx.data().mongo
+    ctx.data()
+        .mongo
         .collection::<LeagueInfo>("league_info")
         .update_one(doc! {}, doc! {"$pull": {"leaderboard_blacklist": target}})
         .await?;
 
-    ctx.reply(format!("ok, {} no longer blacklisted from leaderboard", summary)).await?;
+    ctx.reply(format!(
+        "ok, {} no longer blacklisted from leaderboard",
+        summary
+    ))
+    .await?;
     Ok(())
 }

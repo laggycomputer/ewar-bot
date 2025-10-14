@@ -12,7 +12,8 @@ pub(crate) async fn ping(ctx: Context<'_>) -> Result<(), BotError> {
     ctx.say(match ping_num {
         0 => String::from("ok, waiting for more data to report ping"),
         _ => format!("hi, heartbeat is pinging in {} ms", ping_num),
-    }).await?;
+    })
+    .await?;
     Ok(())
 }
 
@@ -22,7 +23,10 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
     let recents = {
         let repo = ThreadSafeRepository::open(".")?.to_thread_local();
 
-        let walk = repo.rev_walk([repo.head_id()?]).first_parent_only().all()?
+        let walk = repo
+            .rev_walk([repo.head_id()?])
+            .first_parent_only()
+            .all()?
             .take(6)
             .collect_vec();
 
@@ -35,7 +39,8 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
             ret.push((
                 commit_id.to_hex().to_string().into_boxed_str(),
                 decoded.message().title.to_string().into_boxed_str(),
-                decoded.author.time.seconds));
+                decoded.author.time()?.seconds,
+            ));
         }
 
         ret
@@ -44,18 +49,29 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
     let mut time_formatter = timeago::Formatter::new();
     time_formatter.num_items(2);
 
-    ctx.send(CreateReply::default()
-        .embed(base_embed(ctx)
-            .description(recents.into_iter()
-                .map(|(hash, message, ts)| {
-                    let message = String::from(message.trim());
+    ctx.send(
+        CreateReply::default().embed(
+            base_embed(ctx).description(
+                recents
+                    .into_iter()
+                    .map(|(hash, message, ts)| {
+                        let message = String::from(message.trim());
 
-                    format!("`{}` {} ({})", &hash[..6], remove_markdown(&*message), time_formatter.convert_chrono(
-                        chrono::DateTime::from_timestamp(ts, 0).unwrap(), Utc::now()
-                    ))
-                })
-                .join("\n")
-            ))).await?;
+                        format!(
+                            "`{}` {} ({})",
+                            &hash[..6],
+                            remove_markdown(&*message),
+                            time_formatter.convert_chrono(
+                                chrono::DateTime::from_timestamp(ts, 0).unwrap(),
+                                Utc::now()
+                            )
+                        )
+                    })
+                    .join("\n"),
+            ),
+        ),
+    )
+    .await?;
 
     Ok(())
 }

@@ -1,10 +1,10 @@
-use std::num::NonZeroUsize;
 use crate::model::{EventNumber, StandingEvent};
+use crate::util::constants::LOG_LIMIT;
 use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::{BotError, Context};
-use bson::doc;
 use futures::TryStreamExt;
-use crate::util::constants::LOG_LIMIT;
+use mongodb::bson::doc;
+use std::num::NonZeroUsize;
 
 #[poise::command(prefix_command, slash_command, subcommands("log"))]
 pub(crate) async fn event(ctx: Context<'_>) -> Result<(), BotError> {
@@ -28,16 +28,24 @@ pub(crate) async fn log(
     };
 
     let mut lines = Vec::new();
-    let mut cur = ctx.data().mongo.collection::<StandingEvent>("events")
+    let mut cur = ctx
+        .data()
+        .mongo
+        .collection::<StandingEvent>("events")
         .find(filter_doc)
         .sort(doc! { "_id": -1 })
         .limit(LOG_LIMIT)
         .await?;
-    while let Some(event) = cur.try_next().await? { lines.push(event.short_summary(&ctx.data().mongo).await?) }
+    while let Some(event) = cur.try_next().await? {
+        lines.push(event.short_summary(&ctx.data().mongo).await?)
+    }
 
-    EmbedLinePaginator::new(lines, PaginatorOptions::new()
-        .max_lines(NonZeroUsize::new(10).unwrap())
-    ).run(ctx).await?;
+    EmbedLinePaginator::new(
+        lines,
+        PaginatorOptions::new().max_lines(NonZeroUsize::new(10).unwrap()),
+    )
+    .run(ctx)
+    .await?;
 
     Ok(())
 }

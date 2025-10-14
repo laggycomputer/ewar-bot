@@ -1,5 +1,5 @@
-use bson::doc;
 use chrono::Utc;
+use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
@@ -37,14 +37,35 @@ pub(crate) struct Game {
 #[non_exhaustive]
 pub(crate) enum StandingEventInner {
     // remove rating for foul play
-    Penalty { victims: Vec<PlayerID>, delta_rating: f64, reason: String },
+    Penalty {
+        victims: Vec<PlayerID>,
+        delta_rating: f64,
+        reason: String,
+    },
     // add deviation for inactivity
-    InactivityDecay { victims: Vec<PlayerID>, delta_deviation: f64 },
+    InactivityDecay {
+        victims: Vec<PlayerID>,
+        delta_deviation: f64,
+    },
     // regular game
     GameEnd(Game),
-    SetStanding { victims: Vec<PlayerID>, new_rating: Option<f64>, new_deviation: Option<f64>, reason: String },
-    ChangeStanding { victims: Vec<PlayerID>, delta_rating: Option<f64>, delta_deviation: Option<f64>, reason: String },
-    JoinLeague { victims: Vec<PlayerID>, initial_rating: f64, initial_deviation: f64 },
+    SetStanding {
+        victims: Vec<PlayerID>,
+        new_rating: Option<f64>,
+        new_deviation: Option<f64>,
+        reason: String,
+    },
+    ChangeStanding {
+        victims: Vec<PlayerID>,
+        delta_rating: Option<f64>,
+        delta_deviation: Option<f64>,
+        reason: String,
+    },
+    JoinLeague {
+        victims: Vec<PlayerID>,
+        initial_rating: f64,
+        initial_deviation: f64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -69,7 +90,10 @@ pub(crate) struct Player {
 
 impl Player {
     pub(crate) fn rating_struct(&self) -> TrueSkillRating {
-        TrueSkillRating { rating: self.rating, uncertainty: self.deviation }
+        TrueSkillRating {
+            rating: self.rating,
+            uncertainty: self.deviation,
+        }
     }
 }
 
