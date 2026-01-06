@@ -39,7 +39,7 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
             ret.push((
                 commit_id.to_hex().to_string().into_boxed_str(),
                 decoded.message().title.to_string().into_boxed_str(),
-                decoded.author.time()?.seconds,
+                decoded.author()?.time()?.seconds,
             ));
         }
 

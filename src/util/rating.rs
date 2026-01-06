@@ -78,7 +78,9 @@ pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueS
             .collect_vec()
             .as_slice(),
         &TRUESKILL_CONFIG,
+        None,
     )
+    .unwrap()
     .into_iter()
     .map(|team| team[0])
     .collect_vec()
