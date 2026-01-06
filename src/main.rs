@@ -91,7 +91,7 @@ async fn main() {
         );
 
     let args = cmd.get_matches();
-    dotenv::from_filename(
+    dotenvy::from_filename(
         args.get_one::<PathBuf>("config")
             .expect("config file is bad path?"),
     )
