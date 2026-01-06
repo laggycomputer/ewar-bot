@@ -21,8 +21,8 @@ pub(crate) async fn log(
 ) -> Result<(), BotError> {
     ctx.defer().await?;
 
-    let filter_doc = if before.is_some() {
-        doc! { "_id": { "$lte": before.unwrap() } }
+    let filter_doc = if let Some(before) = before {
+        doc! { "_id": { "$lte": before } }
     } else {
         doc! {}
     };

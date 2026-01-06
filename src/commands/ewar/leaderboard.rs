@@ -76,7 +76,7 @@ pub(crate) async fn leaderboard(
     for (ind, player) in aggregate_players.into_iter().enumerate() {
         let mut line = format!(
             "{}: {}",
-            remove_markdown(&*player.username),
+            remove_markdown(&player.username),
             player.rating_struct().format_rating()
         );
         line = if player.rating_struct().is_provisional() {

@@ -15,7 +15,6 @@ use regex::RegexBuilder;
 use serde::Deserialize;
 use serenity::all::{Mentionable, User, UserId};
 use skillratings::trueskill::TrueSkillRating;
-use std::convert::identity;
 use timeago::TimeUnit::Minutes;
 
 pub(crate) enum UserLookupType<'a> {
@@ -127,7 +126,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
     let mut assoc_accounts = looked_up
         .discord_ids
         .iter()
-        .map(|id| UserId::try_from(*id).unwrap().mention())
+        .map(|id| UserId::from(*id).mention())
         .join(", ");
     if assoc_accounts.is_empty() {
         assoc_accounts = String::from("<none>")
@@ -142,7 +141,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
         .embed(base_embed(ctx)
             .field("user",
                    format!("{} (ID {})",
-                           remove_markdown(&*looked_up.username),
+                           remove_markdown(&looked_up.username),
                            looked_up._id), true)
             .field("rating stuff", format!(
                 "{} (true rating {:.2}, deviation {:.2}){}",
@@ -261,7 +260,7 @@ pub(crate) async fn register_user(
         last_played: None,
         discord_ids: vec![user]
             .into_iter()
-            .filter_map(identity)
+            .flatten()
             .map(|u| u.id.get())
             .collect_vec(),
     };
@@ -301,19 +300,18 @@ pub(crate) async fn register(
         .unwrap_or(ctx.author().name.clone())
         .to_lowercase();
 
-    match try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await? {
-        Some(player) => {
-            ctx.reply(format!(
-                "cannot bind your discord account to a second player (currently bound to user {})",
-                player.reference_no_discord()
-            ))
-            .await?;
-            return Ok(());
-        }
-        None => {}
+    if let Some(player) =
+        try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get())).await?
+    {
+        ctx.reply(format!(
+            "cannot bind your discord account to a second player (currently bound to user {})",
+            player.reference_no_discord()
+        ))
+        .await?;
+        return Ok(());
     };
 
-    if try_lookup_player(&ctx.data().mongo, Username(&*proposed_name))
+    if try_lookup_player(&ctx.data().mongo, Username(&proposed_name))
         .await?
         .is_some()
     {
@@ -330,7 +328,7 @@ pub(crate) async fn register(
     if proposed_name.len() > 32 {
         ctx.reply("name too long, sorry").await?;
         return Ok(());
-    } else if !valid_pattern.is_match(&*proposed_name) {
+    } else if !valid_pattern.is_match(&proposed_name) {
         ctx.reply("only alphanumeric, `_`, or `.`, sorry").await?;
         return Ok(());
     }

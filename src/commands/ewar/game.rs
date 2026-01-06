@@ -23,7 +23,6 @@ use serenity::all::{
     EditMessage, Mentionable, ReactionType, User, UserId,
 };
 use std::collections::HashSet;
-use std::convert::identity;
 use std::num::NonZeroUsize;
 use std::time::Duration;
 use timeago::TimeUnit::Seconds;
@@ -122,7 +121,7 @@ pub(crate) async fn post(
         return Ok(());
     }
     let unwrapped_parts = parts.into_iter().map(Option::unwrap).collect_vec();
-    let time_seconds = unwrapped_parts.get(0).unwrap_or(&0)
+    let time_seconds = unwrapped_parts.first().unwrap_or(&0)
         + 60 * unwrapped_parts.get(1).unwrap_or(&0)
         + 60 * 60 * unwrapped_parts.get(2).unwrap_or(&0);
 
@@ -142,7 +141,7 @@ pub(crate) async fn post(
         user11,
     ]
     .into_iter()
-    .filter_map(identity)
+    .flatten()
     .collect_vec();
 
     // part 1: validate proposed game
@@ -216,7 +215,7 @@ pub(crate) async fn post(
         .clone()
         .into_iter()
         .collect::<HashSet<_>>();
-    not_signed_off.remove(&ctx.author());
+    not_signed_off.remove(ctx.author());
 
     // remove "please react below..." and button
     waited
@@ -441,7 +440,7 @@ pub(crate) async fn whatif(
         user11,
     ]
     .into_iter()
-    .filter_map(identity)
+    .flatten()
     .collect_vec();
 
     let placement_players = match lookup_placement(&ctx.data().mongo, &placement_discord).await? {
@@ -592,9 +591,9 @@ pub(crate) async fn log(
 ) -> Result<(), BotError> {
     ctx.defer().await?;
 
-    let filter_doc = if before.is_some() {
+    let filter_doc = if let Some(before) = before {
         doc! { "inner.GameEnd": { "$exists": true },
-            "inner.GameEnd.game_id": { "$lte": before.unwrap() }
+            "inner.GameEnd.game_id": { "$lte": before }
         }
     } else {
         doc! { "inner.GameEnd": { "$exists": true } }

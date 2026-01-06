@@ -42,15 +42,15 @@ pub(crate) fn base_embed(ctx: Context<'_>) -> CreateEmbed {
 
 impl Player {
     pub(crate) fn short_summary(&self) -> Box<str> {
-        match self.discord_ids.get(0) {
+        match self.discord_ids.first() {
             None => self.username.clone(),
-            Some(discord_id) => UserId::try_from(*discord_id).unwrap().mention().to_string(),
+            Some(discord_id) => UserId::from(*discord_id).mention().to_string(),
         }
         .into_boxed_str()
     }
 
     pub(crate) fn reference_no_discord(&self) -> Box<str> {
-        format!("{}, ID {}", remove_markdown(&*self.username), self._id)
+        format!("{}, ID {}", remove_markdown(&self.username), self._id)
             .to_owned()
             .into_boxed_str()
     }

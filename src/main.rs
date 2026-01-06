@@ -26,7 +26,7 @@ use tokio_cron::{daily, Job, Scheduler};
 async fn inactivity_decay_job(mongo_uri: String, mongo_db: String) -> Result<(), BotError> {
     let mongo = mongodb::Client::with_uri_str(mongo_uri)
         .await?
-        .database(&*mongo_db);
+        .database(&mongo_db);
 
     inactivity_decay_inner(&mongo).await
 }
@@ -197,7 +197,7 @@ async fn main() {
 
                 let mongo = mongodb::Client::with_uri_str(mongo_uri)
                     .await?
-                    .database(&*mongo_db);
+                    .database(&mongo_db);
                 mongo.run_command(doc! { "ping": 1 }).await?;
                 println!("mongo ok");
 

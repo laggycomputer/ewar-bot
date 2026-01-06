@@ -50,7 +50,7 @@ impl RatingExtra for TrueSkillRating {
     }
 }
 
-pub(crate) fn expected_outcome(placement: &Vec<TrueSkillRating>) -> Vec<f64> {
+pub(crate) fn expected_outcome(placement: &[TrueSkillRating]) -> Vec<f64> {
     let ratings = placement.iter().map(|rating| vec![*rating]).collect_vec();
 
     expected_score_multi_team(
@@ -63,7 +63,7 @@ pub(crate) fn expected_outcome(placement: &Vec<TrueSkillRating>) -> Vec<f64> {
     )
 }
 
-pub(crate) fn game_affect_ratings(placement: &Vec<TrueSkillRating>) -> Vec<TrueSkillRating> {
+pub(crate) fn game_affect_ratings(placement: &[TrueSkillRating]) -> Vec<TrueSkillRating> {
     let ratings = placement
         .iter()
         .map(|rating| vec![rating.as_effective()])

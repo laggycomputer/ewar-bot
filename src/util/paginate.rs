@@ -72,8 +72,8 @@ impl EmbedLinePaginator {
                 num_in_working_chunk = 0;
             }
 
-            working_chunk.push_str(&*options.sep);
-            working_chunk.push_str(&*line);
+            working_chunk.push_str(&options.sep);
+            working_chunk.push_str(&line);
             num_in_working_chunk += 1;
         }
 

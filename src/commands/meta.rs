@@ -60,7 +60,7 @@ pub(crate) async fn git(ctx: Context<'_>) -> Result<(), BotError> {
                         format!(
                             "`{}` {} ({})",
                             &hash[..6],
-                            remove_markdown(&*message),
+                            remove_markdown(&message),
                             time_formatter.convert_chrono(
                                 chrono::DateTime::from_timestamp(ts, 0).unwrap(),
                                 Utc::now()

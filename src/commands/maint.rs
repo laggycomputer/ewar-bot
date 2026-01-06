@@ -35,7 +35,7 @@ pub(crate) async fn advance_pointer(
         .expect("league_info struct missing");
 
     let stopped_before = first_unreviewed_event_number;
-    let new_stopped_before = advance_approve_pointer(&ctx.data(), stop_before).await?;
+    let new_stopped_before = advance_approve_pointer(ctx.data(), stop_before).await?;
 
     ctx.reply(match stopped_before == new_stopped_before {
         true => format!("ok, stopped at event number {} (no change)", stopped_before),
@@ -146,7 +146,7 @@ pub(crate) async fn fsck(
                 let offender: &Bson = out
                     .get("_id")
                     .expect("how does a mongo object not have an id");
-                format!("event {} is not okay:\n{:?}", offender.to_string(), e)
+                format!("event {} is not okay:\n{:?}", offender, e)
             }
         };
         // we will never be here if everything is okay
@@ -194,22 +194,20 @@ pub(crate) async fn fsck(
 
     if !had_err {
         ctx.reply("all ok").await?;
-    } else {
-        if repair.unwrap_or(false) {
-            let mut fix_league_info = LeagueInfo::from(league_info);
-            fix_league_info.available_event_number =
-                min(fix_league_info.available_event_number, first_missing_event);
-            fix_league_info.available_game_id =
-                min(fix_league_info.available_game_id, first_missing_game);
-            fix_league_info.first_unreviewed_event_number = first_unreviewed_event;
-            ctx.data()
-                .mongo
-                .collection::<LeagueInfo>("league_info")
-                .find_one_and_replace(doc! {}, fix_league_info)
-                .await?;
-            ctx.reply("fixing approve pointer, trimming free event/game numbers as necessary")
-                .await?;
-        }
+    } else if repair.unwrap_or(false) {
+        let mut fix_league_info = league_info;
+        fix_league_info.available_event_number =
+            min(fix_league_info.available_event_number, first_missing_event);
+        fix_league_info.available_game_id =
+            min(fix_league_info.available_game_id, first_missing_game);
+        fix_league_info.first_unreviewed_event_number = first_unreviewed_event;
+        ctx.data()
+            .mongo
+            .collection::<LeagueInfo>("league_info")
+            .find_one_and_replace(doc! {}, fix_league_info)
+            .await?;
+        ctx.reply("fixing approve pointer, trimming free event/game numbers as necessary")
+            .await?;
     }
 
     Ok(())

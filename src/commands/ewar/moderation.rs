@@ -155,26 +155,20 @@ pub(crate) async fn force_register(
     #[description = "discord user to register"] username: String,
     #[description = "username to give them"] victim: Option<User>,
 ) -> Result<(), BotError> {
-    if victim.is_some() {
-        match try_lookup_player(
-            &ctx.data().mongo,
-            DiscordID(victim.as_ref().unwrap().id.get()),
-        )
-        .await?
+    if let Some(ref victim) = victim {
+        if let Some(player) =
+            try_lookup_player(&ctx.data().mongo, DiscordID(victim.id.get())).await?
         {
-            Some(player) => {
-                ctx.reply(format!(
-                    "cannot bind that discord user to a second player (currently bound to user {})",
-                    player.reference_no_discord()
-                ))
-                .await?;
-                return Ok(());
-            }
-            None => {}
+            ctx.reply(format!(
+                "cannot bind that discord user to a second player (currently bound to user {})",
+                player.reference_no_discord()
+            ))
+            .await?;
+            return Ok(());
         };
     }
 
-    if try_lookup_player(&ctx.data().mongo, Username(&*username))
+    if try_lookup_player(&ctx.data().mongo, Username(&username))
         .await?
         .is_some()
     {
@@ -214,12 +208,12 @@ pub(crate) async fn penalize(
 
     let handle = ctx.send(CreateReply::default()
         .content(format!("**you are penalizing user {} {amount} true rating for {}**\nplease confirm again, you have ten seconds",
-                         victim.short_summary(), remove_markdown(&*reason)))
+                         victim.short_summary(), remove_markdown(&reason)))
         .components(vec![
             CreateActionRow::Buttons(vec![
                 CreateButton::new("penalize_confirm")
-                    .emoji(GuildId::new(1278507827442221109u64.try_into().unwrap())
-                        .emoji(ctx.http(), EmojiId::new(1283642353395044413u64.try_into().unwrap())).await?)
+                    .emoji(GuildId::new(1278507827442221109u64)
+                        .emoji(ctx.http(), EmojiId::new(1283642353395044413u64)).await?)
             ])
         ])
         .reply(true)
