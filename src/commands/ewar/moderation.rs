@@ -252,7 +252,7 @@ pub(crate) async fn penalize(
             ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge)
                 .await?;
         }
-    };
+    }
 
     let responsible_moderator =
         try_lookup_player(&ctx.data().mongo, DiscordID(ctx.author().id.get()))
