@@ -121,12 +121,12 @@ pub(crate) async fn post(
         .await?;
         return Ok(());
     }
-    let parts = game_time
+
+    let Ok(parts) = game_time
         .into_iter()
-        .map(|sec| sec.parse::<u32>().ok())
+        .map(|sec| sec.parse::<u32>())
         .rev()
-        .collect_vec();
-    if parts.iter().any(|sec| sec.is_none()) {
+        .collect::<Result<Vec<_>, _>>() else {
         ctx.send(
             CreateReply::default()
                 .content(":x: some part of your time was not a number")
@@ -134,11 +134,11 @@ pub(crate) async fn post(
         )
         .await?;
         return Ok(());
-    }
-    let unwrapped_parts = parts.into_iter().map(Option::unwrap).collect_vec();
-    let time_seconds = unwrapped_parts.first().unwrap_or(&0)
-        + 60 * unwrapped_parts.get(1).unwrap_or(&0)
-        + 60 * 60 * unwrapped_parts.get(2).unwrap_or(&0);
+    };
+
+    let time_seconds = parts.first().unwrap_or(&0)
+        + 60 * parts.get(1).unwrap_or(&0)
+        + 60 * 60 * parts.get(2).unwrap_or(&0);
 
     let submitted_time = Utc::now();
 
