@@ -548,7 +548,7 @@ pub(crate) async fn query(
         .map(|(index, user)| format!("{}. {}", index + 1, user.short_summary()))
         .join("\n");
 
-    let chrono_game_length = TimeDelta::from_std(Duration::from_secs(game.length as u64))?;
+    let chrono_game_length = TimeDelta::from_std(Duration::from_secs(u64::from(game.length)))?;
 
     ctx.send(
         CreateReply::default()
