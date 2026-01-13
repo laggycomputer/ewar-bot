@@ -1,29 +1,45 @@
 use crate::commands::ewar::user::try_lookup_player;
-use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
+use crate::commands::ewar::user::UserLookupType::DiscordID;
+use crate::commands::ewar::user::UserLookupType::SystemID;
+use crate::model::ApprovalStatus;
+use crate::model::Game;
+use crate::model::GameID;
+use crate::model::LeagueInfo;
+use crate::model::Player;
+use crate::model::StandingEvent;
 use crate::model::StandingEventInner::GameEnd;
-use crate::model::{ApprovalStatus, Player};
-use crate::model::{Game, GameID, LeagueInfo, StandingEvent};
 use crate::util::base_embed;
-use crate::util::checks::{_is_league_moderator, has_system_account};
+use crate::util::checks::_is_league_moderator;
+use crate::util::checks::has_system_account;
 use crate::util::constants::LOG_LIMIT;
-use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
+use crate::util::paginate::EmbedLinePaginator;
+use crate::util::paginate::PaginatorOptions;
+use crate::util::rating::advance_approve_pointer;
+use crate::util::rating::expected_outcome;
+use crate::util::rating::game_affect_ratings;
 use crate::util::rating::RatingExtra as _;
-use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
-use crate::{BotError, Context};
-use chrono::{TimeDelta, Utc};
+use crate::BotError;
+use crate::Context;
+use chrono::TimeDelta;
+use chrono::Utc;
+use core::num::NonZeroUsize;
+use core::time::Duration;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use mongodb::bson::doc;
 use mongodb::Database;
 use pluralizer::pluralize;
 use poise::CreateReply;
-use serenity::all::{
-    CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage,
-    EditMessage, Mentionable as _, ReactionType, User, UserId,
-};
+use serenity::all::CreateActionRow;
+use serenity::all::CreateButton;
+use serenity::all::CreateInteractionResponse;
+use serenity::all::CreateInteractionResponseMessage;
+use serenity::all::EditMessage;
+use serenity::all::Mentionable as _;
+use serenity::all::ReactionType;
+use serenity::all::User;
+use serenity::all::UserId;
 use std::collections::HashSet;
-use core::num::NonZeroUsize;
-use core::time::Duration;
 use timeago::TimeUnit::Seconds;
 
 enum BadPlacementType {

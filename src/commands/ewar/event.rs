@@ -1,10 +1,13 @@
-use crate::model::{EventNumber, StandingEvent};
+use crate::model::EventNumber;
+use crate::model::StandingEvent;
 use crate::util::constants::LOG_LIMIT;
-use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
-use crate::{BotError, Context};
+use crate::util::paginate::EmbedLinePaginator;
+use crate::util::paginate::PaginatorOptions;
+use crate::BotError;
+use crate::Context;
+use core::num::NonZeroUsize;
 use futures::TryStreamExt as _;
 use mongodb::bson::doc;
-use core::num::NonZeroUsize;
 
 #[poise::command(prefix_command, slash_command, subcommands("log"))]
 pub(crate) async fn event(ctx: Context<'_>) -> Result<(), BotError> {

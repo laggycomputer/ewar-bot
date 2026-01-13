@@ -1,14 +1,17 @@
 use crate::util::base_embed;
-use crate::{BotError, Context};
-use poise::CreateReply;
-use serenity::all::{
-    CreateActionRow, CreateButton, CreateEmbed, CreateEmbedFooter,
-    CreateInteractionResponseMessage, ReactionType,
-};
-use serenity::builder::CreateInteractionResponse;
+use crate::BotError;
+use crate::Context;
 use core::cmp::min;
 use core::num::NonZeroUsize;
 use core::time::Duration;
+use poise::CreateReply;
+use serenity::all::CreateActionRow;
+use serenity::all::CreateButton;
+use serenity::all::CreateEmbed;
+use serenity::all::CreateEmbedFooter;
+use serenity::all::CreateInteractionResponseMessage;
+use serenity::all::ReactionType;
+use serenity::builder::CreateInteractionResponse;
 
 pub(crate) struct EmbedLinePaginator {
     pages: Vec<String>,

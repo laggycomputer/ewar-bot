@@ -1,4 +1,5 @@
-use skillratings::trueskill::{TrueSkillConfig, TrueSkillRating};
+use skillratings::trueskill::TrueSkillConfig;
+use skillratings::trueskill::TrueSkillRating;
 
 pub(crate) static TRUESKILL_CONFIG: TrueSkillConfig = TrueSkillConfig {
     draw_probability: 0f64,

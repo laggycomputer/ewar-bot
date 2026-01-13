@@ -1,5 +1,7 @@
-use crate::commands::ewar::user::{try_lookup_player, UserLookupType};
-use crate::{BotError, Context};
+use crate::commands::ewar::user::try_lookup_player;
+use crate::commands::ewar::user::UserLookupType;
+use crate::BotError;
+use crate::Context;
 use poise::CreateReply;
 
 pub(crate) async fn _is_league_moderator(ctx: Context<'_>) -> Result<bool, BotError> {

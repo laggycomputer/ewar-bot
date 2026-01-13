@@ -6,14 +6,23 @@ pub(crate) mod serialization;
 
 use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::SystemID;
-use crate::model::{ApprovalStatus, Player, StandingEvent, StandingEventInner};
-use crate::{BotError, Context};
+use crate::model::ApprovalStatus;
+use crate::model::Player;
+use crate::model::StandingEvent;
+use crate::model::StandingEventInner;
+use crate::BotError;
+use crate::Context;
 use chrono::Utc;
-use discord_md::generate::{ToMarkdownString as _, ToMarkdownStringOption};
+use discord_md::generate::ToMarkdownString as _;
+use discord_md::generate::ToMarkdownStringOption;
 use itertools::Itertools as _;
 use mongodb::Database;
-use serenity::all::{CreateEmbed, CreateEmbedAuthor, Mentionable as _, Permissions};
-use serenity::all::{User, UserId};
+use serenity::all::CreateEmbed;
+use serenity::all::CreateEmbedAuthor;
+use serenity::all::Mentionable as _;
+use serenity::all::Permissions;
+use serenity::all::User;
+use serenity::all::UserId;
 use timeago::TimeUnit::Seconds;
 
 pub(crate) fn bot_invite_url(

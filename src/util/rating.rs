@@ -1,16 +1,27 @@
 use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::SystemID;
-use crate::model::StandingEventInner::{
-    ChangeStanding, GameEnd, InactivityDecay, JoinLeague, Penalty,
-};
-use crate::model::{EventNumber, LeagueInfo, Player, StandingEvent, StandingEventInner};
-use crate::util::constants::{DEFAULT_RATING, PROVISIONAL_DEVIATION_THRESHOLD, TRUESKILL_CONFIG};
-use crate::{BotError, BotVars};
+use crate::model::EventNumber;
+use crate::model::LeagueInfo;
+use crate::model::Player;
+use crate::model::StandingEvent;
+use crate::model::StandingEventInner;
+use crate::model::StandingEventInner::ChangeStanding;
+use crate::model::StandingEventInner::GameEnd;
+use crate::model::StandingEventInner::InactivityDecay;
+use crate::model::StandingEventInner::JoinLeague;
+use crate::model::StandingEventInner::Penalty;
+use crate::util::constants::DEFAULT_RATING;
+use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
+use crate::util::constants::TRUESKILL_CONFIG;
+use crate::BotError;
+use crate::BotVars;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use mongodb::bson::doc;
 use mongodb::Database;
-use skillratings::trueskill::{expected_score_multi_team, trueskill_multi_team, TrueSkillRating};
+use skillratings::trueskill::expected_score_multi_team;
+use skillratings::trueskill::trueskill_multi_team;
+use skillratings::trueskill::TrueSkillRating;
 use skillratings::MultiTeamOutcome;
 
 pub(crate) trait RatingExtra {

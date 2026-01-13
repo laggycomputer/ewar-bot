@@ -1,6 +1,7 @@
 use chrono::Utc;
 use mongodb::bson::doc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use skillratings::trueskill::TrueSkillRating;
 use std::collections::HashMap;
 pub(crate) type EventNumber = u32;

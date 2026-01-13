@@ -1,19 +1,30 @@
+use crate::inactivity_decay_inner;
+use crate::model::EventNumber;
+use crate::model::Game;
+use crate::model::LeagueInfo;
+use crate::model::Player;
+use crate::model::StandingEvent;
 use crate::model::StandingEventInner::GameEnd;
-use crate::model::{EventNumber, Game, LeagueInfo, Player, StandingEvent};
 use crate::util::base_embed;
 use crate::util::checks::is_league_moderator;
 use crate::util::rating::advance_approve_pointer;
-use crate::{inactivity_decay_inner, BotError, Context};
-use bson::Bson::{Int64, Null};
-use bson::{Bson, Document};
+use crate::BotError;
+use crate::Context;
+use bson::Bson;
+use bson::Bson::Int64;
+use bson::Bson::Null;
+use bson::Document;
+use core::cmp::min;
+use core::error::Error;
+use core::time::Duration;
 use futures::TryStreamExt as _;
 use mongodb::bson::doc;
 use poise::CreateReply;
 use serde::de::DeserializeOwned;
-use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, ReactionType};
-use core::cmp::min;
-use core::error::Error;
-use core::time::Duration;
+use serenity::all::CreateActionRow;
+use serenity::all::CreateButton;
+use serenity::all::CreateInteractionResponse;
+use serenity::all::ReactionType;
 
 /// attempt to advance the approve pointer (be careful)
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]

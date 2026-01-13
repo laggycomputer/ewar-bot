@@ -1,21 +1,37 @@
-use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username};
-use crate::commands::ewar::user::{register_user, try_lookup_player};
-use crate::model::StandingEventInner::{GameEnd, Penalty};
-use crate::model::{ApprovalStatus, Game, GameID, LeagueInfo, PlayerID, StandingEvent};
-use crate::util::checks::{has_system_account, is_league_moderator};
+use crate::commands::ewar::user::register_user;
+use crate::commands::ewar::user::try_lookup_player;
+use crate::commands::ewar::user::UserLookupType::DiscordID;
+use crate::commands::ewar::user::UserLookupType::SystemID;
+use crate::commands::ewar::user::UserLookupType::Username;
+use crate::model::ApprovalStatus;
+use crate::model::Game;
+use crate::model::GameID;
+use crate::model::LeagueInfo;
+use crate::model::PlayerID;
+use crate::model::StandingEvent;
+use crate::model::StandingEventInner::GameEnd;
+use crate::model::StandingEventInner::Penalty;
+use crate::util::base_embed;
+use crate::util::checks::has_system_account;
+use crate::util::checks::is_league_moderator;
 use crate::util::rating::advance_approve_pointer;
-use crate::util::{base_embed, remove_markdown};
-use crate::{BotError, Context};
+use crate::util::remove_markdown;
+use crate::BotError;
+use crate::Context;
 use chrono::Utc;
+use core::time::Duration;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
-use mongodb::bson::{doc, Bson};
+use mongodb::bson::doc;
+use mongodb::bson::Bson;
 use poise::CreateReply;
-use serenity::all::{
-    CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId,
-    User,
-};
-use core::time::Duration;
+use serenity::all::CreateActionRow;
+use serenity::all::CreateButton;
+use serenity::all::CreateEmbedFooter;
+use serenity::all::CreateInteractionResponse;
+use serenity::all::EmojiId;
+use serenity::all::GuildId;
+use serenity::all::User;
 
 /// League moderators: review game for league record; approve or reject
 #[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator

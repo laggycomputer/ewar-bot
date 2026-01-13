@@ -1,5 +1,7 @@
-use crate::util::{base_embed, remove_markdown};
-use crate::{BotError, Context};
+use crate::util::base_embed;
+use crate::util::remove_markdown;
+use crate::BotError;
+use crate::Context;
 use chrono::Utc;
 use gix::ThreadSafeRepository;
 use itertools::Itertools as _;

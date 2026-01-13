@@ -1,10 +1,14 @@
 // https://gist.github.com/ImTheSquid/b5f34c39c5c4a7760b3917c394b9ec07
 
 pub(crate) mod chrono_datetime_option_as_bson_datetime_option {
-    use bson::{Bson, DateTime};
+    use bson::Bson;
+    use bson::DateTime;
     use chrono::Utc;
     use serde::de::Error as _;
-    use serde::{Deserialize as _, Deserializer, Serialize as _, Serializer};
+    use serde::Deserialize as _;
+    use serde::Deserializer;
+    use serde::Serialize as _;
+    use serde::Serializer;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<chrono::DateTime<Utc>>, D::Error>
     where

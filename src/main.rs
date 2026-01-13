@@ -4,24 +4,34 @@ mod handler;
 mod model;
 mod util;
 
-use crate::commands::{ewar, maint, meta};
+use crate::commands::ewar;
+use crate::commands::maint;
+use crate::commands::meta;
+use crate::model::ApprovalStatus;
+use crate::model::LeagueInfo;
+use crate::model::Player;
+use crate::model::StandingEvent;
 use crate::model::StandingEventInner::InactivityDecay;
-use crate::model::{ApprovalStatus, LeagueInfo, Player, StandingEvent};
-use chrono::{TimeDelta, Utc};
+use chrono::TimeDelta;
+use chrono::Utc;
 use clap::ValueHint;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use mongodb::bson::doc;
 use mongodb::Database;
 use pluralizer::pluralize;
-use poise::{FrameworkOptions, PrefixFrameworkOptions};
+use poise::FrameworkOptions;
+use poise::PrefixFrameworkOptions;
+use serenity::all::GatewayIntents;
 use serenity::all::GuildId;
-use serenity::all::{GatewayIntents, UserId};
+use serenity::all::UserId;
 use serenity::Client;
 use std::collections::HashSet;
 use std::env;
 use std::path::PathBuf;
-use tokio_cron::{daily, Job, Scheduler};
+use tokio_cron::daily;
+use tokio_cron::Job;
+use tokio_cron::Scheduler;
 
 async fn inactivity_decay_job(mongo_uri: String, mongo_db: String) -> Result<(), BotError> {
     let mongo = mongodb::Client::with_uri_str(mongo_uri)

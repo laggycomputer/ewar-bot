@@ -1,9 +1,12 @@
-use crate::model::{LeagueInfo, Player};
+use crate::model::LeagueInfo;
+use crate::model::Player;
 use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
-use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
+use crate::util::paginate::EmbedLinePaginator;
+use crate::util::paginate::PaginatorOptions;
 use crate::util::rating::RatingExtra as _;
 use crate::util::remove_markdown;
-use crate::{BotError, Context};
+use crate::BotError;
+use crate::Context;
 use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use mongodb::bson::doc;
