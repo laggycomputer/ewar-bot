@@ -143,7 +143,7 @@ pub(crate) async fn advance_approve_pointer(
     }
 
     league_info_collection.update_one(doc! {}, doc! {
-        "$max": { "first_unreviewed_event_number": first_unreviewed_event_number_num as i64 },
+        "$max": { "first_unreviewed_event_number": i64::from(first_unreviewed_event_number_num) },
     }).await?;
 
     Ok(first_unreviewed_event_number_num)
