@@ -83,7 +83,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
         } else {
             match consec_decay {
                 0 => {}
-                1 => event_lines.push("<inactivity decay>".to_string().into_boxed_str()),
+                1 => event_lines.push("<inactivity decay>".to_owned().into_boxed_str()),
                 n => event_lines.push(format!("<inactivity decay> x{n}").into_boxed_str()),
             }
             consec_decay = 0;
