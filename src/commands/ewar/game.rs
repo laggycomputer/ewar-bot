@@ -9,7 +9,7 @@ use crate::model::Player;
 use crate::model::StandingEvent;
 use crate::model::StandingEventInner::GameEnd;
 use crate::util::base_embed;
-use crate::util::checks::_is_league_moderator;
+use crate::util::checks::is_league_moderator_inner;
 use crate::util::checks::has_system_account;
 use crate::util::constants::LOG_LIMIT;
 use crate::util::paginate::EmbedLinePaginator;
@@ -164,7 +164,7 @@ pub(crate) async fn post(
         .await?
         .expect("user disappeared after check");
 
-    let poster_not_moderator = !_is_league_moderator(ctx).await?;
+    let poster_not_moderator = !is_league_moderator_inner(ctx).await?;
     if poster_not_moderator && placement_discord.iter().all(|u| u != ctx.author()) {
         ctx.reply(":x: you must be a party to a game to log it")
             .await?;
