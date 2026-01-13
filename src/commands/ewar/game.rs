@@ -124,7 +124,7 @@ pub(crate) async fn post(
 
     let Ok(parts) = game_time
         .into_iter()
-        .map(|sec| sec.parse::<u32>())
+        .map(str::parse::<u32>)
         .rev()
         .collect::<Result<Vec<_>, _>>() else {
         ctx.send(
@@ -468,7 +468,7 @@ pub(crate) async fn whatif(
 
     let placement_ratings = placement_players
         .iter()
-        .map(|player| player.rating_struct())
+        .map(Player::rating_struct)
         .collect_vec();
 
     let new_ratings = game_affect_ratings(&placement_ratings);
