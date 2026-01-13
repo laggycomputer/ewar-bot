@@ -8,19 +8,19 @@ use crate::util::base_embed;
 use crate::util::checks::{_is_league_moderator, has_system_account};
 use crate::util::constants::LOG_LIMIT;
 use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
-use crate::util::rating::RatingExtra;
+use crate::util::rating::RatingExtra as _;
 use crate::util::rating::{advance_approve_pointer, expected_outcome, game_affect_ratings};
 use crate::{BotError, Context};
 use chrono::{TimeDelta, Utc};
-use futures::TryStreamExt;
-use itertools::Itertools;
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use mongodb::bson::doc;
 use mongodb::Database;
 use pluralizer::pluralize;
 use poise::CreateReply;
 use serenity::all::{
     CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage,
-    EditMessage, Mentionable, ReactionType, User, UserId,
+    EditMessage, Mentionable as _, ReactionType, User, UserId,
 };
 use std::collections::HashSet;
 use std::num::NonZeroUsize;

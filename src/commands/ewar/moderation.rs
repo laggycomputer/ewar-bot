@@ -7,8 +7,8 @@ use crate::util::rating::advance_approve_pointer;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use chrono::Utc;
-use futures::TryStreamExt;
-use itertools::Itertools;
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use mongodb::bson::{doc, Bson};
 use poise::CreateReply;
 use serenity::all::{

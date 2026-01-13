@@ -2,7 +2,7 @@ use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use chrono::Utc;
 use gix::ThreadSafeRepository;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use poise::CreateReply;
 
 /// Check bot is alive, get numerical ping to Discord

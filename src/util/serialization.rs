@@ -3,8 +3,8 @@
 pub(crate) mod chrono_datetime_option_as_bson_datetime_option {
     use bson::{Bson, DateTime};
     use chrono::Utc;
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::de::Error as _;
+    use serde::{Deserialize as _, Deserializer, Serialize as _, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<chrono::DateTime<Utc>>, D::Error>
     where

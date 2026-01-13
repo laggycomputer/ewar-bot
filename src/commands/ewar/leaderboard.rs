@@ -1,11 +1,11 @@
 use crate::model::{LeagueInfo, Player};
 use crate::util::constants::PROVISIONAL_DEVIATION_THRESHOLD;
 use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
-use crate::util::rating::RatingExtra;
+use crate::util::rating::RatingExtra as _;
 use crate::util::remove_markdown;
 use crate::{BotError, Context};
-use futures::TryStreamExt;
-use itertools::Itertools;
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use mongodb::bson::doc;
 
 /// see the highest rated players

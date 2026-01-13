@@ -6,8 +6,8 @@ use crate::model::StandingEventInner::{
 use crate::model::{EventNumber, LeagueInfo, Player, StandingEvent, StandingEventInner};
 use crate::util::constants::{DEFAULT_RATING, PROVISIONAL_DEVIATION_THRESHOLD, TRUESKILL_CONFIG};
 use crate::{BotError, BotVars};
-use futures::StreamExt;
-use itertools::Itertools;
+use futures::StreamExt as _;
+use itertools::Itertools as _;
 use mongodb::bson::doc;
 use mongodb::Database;
 use skillratings::trueskill::{expected_score_multi_team, trueskill_multi_team, TrueSkillRating};

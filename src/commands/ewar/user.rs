@@ -2,18 +2,18 @@ use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID, Username}
 use crate::model::StandingEventInner::{InactivityDecay, JoinLeague};
 use crate::model::{ApprovalStatus, GameID, LeagueInfo, Player, PlayerID, StandingEvent};
 use crate::util::constants::{DEFAULT_RATING, PROVISIONAL_DEVIATION_THRESHOLD};
-use crate::util::rating::RatingExtra;
+use crate::util::rating::RatingExtra as _;
 use crate::util::{base_embed, remove_markdown};
 use crate::{BotError, Context};
 use chrono::Utc;
-use futures::TryStreamExt;
-use itertools::Itertools;
+use futures::TryStreamExt as _;
+use itertools::Itertools as _;
 use mongodb::bson::doc;
 use mongodb::Database;
 use poise::CreateReply;
 use regex::RegexBuilder;
 use serde::Deserialize;
-use serenity::all::{Mentionable, User, UserId};
+use serenity::all::{Mentionable as _, User, UserId};
 use skillratings::trueskill::TrueSkillRating;
 use timeago::TimeUnit::Minutes;
 

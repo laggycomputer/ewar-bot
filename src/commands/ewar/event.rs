@@ -2,7 +2,7 @@ use crate::model::{EventNumber, StandingEvent};
 use crate::util::constants::LOG_LIMIT;
 use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::{BotError, Context};
-use futures::TryStreamExt;
+use futures::TryStreamExt as _;
 use mongodb::bson::doc;
 use std::num::NonZeroUsize;
 

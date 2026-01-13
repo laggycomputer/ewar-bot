@@ -9,10 +9,10 @@ use crate::commands::ewar::user::UserLookupType::SystemID;
 use crate::model::{ApprovalStatus, Player, StandingEvent, StandingEventInner};
 use crate::{BotError, Context};
 use chrono::Utc;
-use discord_md::generate::{ToMarkdownString, ToMarkdownStringOption};
-use itertools::Itertools;
+use discord_md::generate::{ToMarkdownString as _, ToMarkdownStringOption};
+use itertools::Itertools as _;
 use mongodb::Database;
-use serenity::all::{CreateEmbed, CreateEmbedAuthor, Mentionable, Permissions};
+use serenity::all::{CreateEmbed, CreateEmbedAuthor, Mentionable as _, Permissions};
 use serenity::all::{User, UserId};
 use timeago::TimeUnit::Seconds;
 

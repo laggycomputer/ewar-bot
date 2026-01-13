@@ -6,7 +6,7 @@ use crate::util::rating::advance_approve_pointer;
 use crate::{inactivity_decay_inner, BotError, Context};
 use bson::Bson::{Int64, Null};
 use bson::{Bson, Document};
-use futures::TryStreamExt;
+use futures::TryStreamExt as _;
 use mongodb::bson::doc;
 use poise::CreateReply;
 use serde::de::DeserializeOwned;

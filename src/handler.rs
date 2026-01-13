@@ -1,5 +1,5 @@
 use crate::util::bot_invite_url;
-use rand::prelude::IndexedRandom;
+use rand::prelude::IndexedRandom as _;
 use serenity::all::{
     ActivityData, ActivityType, Context, EventHandler, OnlineStatus, Permissions, Ready,
 };
