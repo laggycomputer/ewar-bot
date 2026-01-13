@@ -309,7 +309,7 @@ pub(crate) async fn register(
         ))
         .await?;
         return Ok(());
-    };
+    }
 
     if try_lookup_player(&ctx.data().mongo, Username(&proposed_name))
         .await?
