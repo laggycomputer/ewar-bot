@@ -46,15 +46,16 @@ pub(crate) async fn review(
         .mongo
         .collection::<StandingEvent>("events")
         .find_one(doc! { "inner.GameEnd.game_id": game_id })
-        .await? else {
-            ctx.send(
-                CreateReply::default()
-                    .content(":x: that game DNE")
-                    .ephemeral(true),
-            )
-            .await?;
-            return Ok(());
-        };
+        .await?
+    else {
+        ctx.send(
+            CreateReply::default()
+                .content(":x: that game DNE")
+                .ephemeral(true),
+        )
+        .await?;
+        return Ok(());
+    };
 
     let StandingEvent {
         inner: GameEnd(Game { .. }),
@@ -211,9 +212,9 @@ pub(crate) async fn penalize(
     #[description = "reason you're doing this"] reason: String,
 ) -> Result<(), BotError> {
     let Some(victim) = try_lookup_player(&ctx.data().mongo, SystemID(target)).await? else {
-            ctx.reply(":x: i don't know who that is").await?;
-            return Ok(());
-        };
+        ctx.reply(":x: i don't know who that is").await?;
+        return Ok(());
+    };
 
     let handle = ctx.send(CreateReply::default()
         .content(format!("**you are penalizing user {} {amount} true rating for {}**\nplease confirm again, you have ten seconds",

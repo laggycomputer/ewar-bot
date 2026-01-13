@@ -78,7 +78,9 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
     let mut event_lines = Vec::with_capacity(events.len());
     let mut consec_decay = 0;
     for event in events {
-        if let InactivityDecay { .. } = &event.inner { consec_decay += 1 } else {
+        if let InactivityDecay { .. } = &event.inner {
+            consec_decay += 1
+        } else {
             match consec_decay {
                 0 => {}
                 1 => event_lines.push("<inactivity decay>".to_string().into_boxed_str()),

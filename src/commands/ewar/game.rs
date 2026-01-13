@@ -9,8 +9,8 @@ use crate::model::Player;
 use crate::model::StandingEvent;
 use crate::model::StandingEventInner::GameEnd;
 use crate::util::base_embed;
-use crate::util::checks::is_league_moderator_inner;
 use crate::util::checks::has_system_account;
+use crate::util::checks::is_league_moderator_inner;
 use crate::util::constants::LOG_LIMIT;
 use crate::util::paginate::EmbedLinePaginator;
 use crate::util::paginate::PaginatorOptions;
@@ -126,7 +126,8 @@ pub(crate) async fn post(
         .into_iter()
         .map(str::parse::<u32>)
         .rev()
-        .collect::<Result<Vec<_>, _>>() else {
+        .collect::<Result<Vec<_>, _>>()
+    else {
         ctx.send(
             CreateReply::default()
                 .content(":x: some part of your time was not a number")

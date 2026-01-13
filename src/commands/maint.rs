@@ -170,10 +170,11 @@ pub(crate) async fn fsck(
         .mongo
         .collection::<LeagueInfo>("league_info")
         .find_one(doc! {})
-        .await? else {
-            ctx.reply("league_info DNE").await?;
-            return Ok(());
-        };
+        .await?
+    else {
+        ctx.reply("league_info DNE").await?;
+        return Ok(());
+    };
 
     if league_info.available_event_number != first_missing_event {
         ctx.reply(format!("league_info available event number {} != actual {first_missing_event}, INSPECT AND FIX",
@@ -253,11 +254,12 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         .mongo
         .collection::<StandingEvent>("events")
         .find_one(doc! { "_id": available_event_number - 1 })
-        .await? else {
-            ctx.reply("latest event DNE; you have a major issue, fsck now")
-                .await?;
-            return Ok(());
-        };
+        .await?
+    else {
+        ctx.reply("latest event DNE; you have a major issue, fsck now")
+            .await?;
+        return Ok(());
+    };
 
     let handle = ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
