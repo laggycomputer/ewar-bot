@@ -165,8 +165,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
                 }
             ), true)
             .field("last played", looked_up.last_played
-                .map(|dt| format!("<t:{}:f> ({})", dt.timestamp(), time_formatter.convert_chrono(dt, Utc::now())))
-                .unwrap_or("never".to_string()),
+                .map_or(String::from("never"), |dt| format!("<t:{}:f> ({})", dt.timestamp(), time_formatter.convert_chrono(dt, Utc::now()))),
                    true)
             .field("associated discord accounts", assoc_accounts, true)
             .field("record", format!("{} - {}", win_loss.wins, win_loss.losses), true)
