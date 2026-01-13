@@ -78,17 +78,14 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
     let mut event_lines = Vec::with_capacity(events.len());
     let mut consec_decay = 0;
     for event in events {
-        match &event.inner {
-            InactivityDecay { .. } => consec_decay += 1,
-            _ => {
-                match consec_decay {
-                    0 => {}
-                    1 => event_lines.push("<inactivity decay>".to_string().into_boxed_str()),
-                    n => event_lines.push(format!("<inactivity decay> x{n}").into_boxed_str()),
-                }
-                consec_decay = 0;
-                event_lines.push(event.short_summary(&ctx.data().mongo).await?);
+        if let InactivityDecay { .. } = &event.inner { consec_decay += 1 } else {
+            match consec_decay {
+                0 => {}
+                1 => event_lines.push("<inactivity decay>".to_string().into_boxed_str()),
+                n => event_lines.push(format!("<inactivity decay> x{n}").into_boxed_str()),
             }
+            consec_decay = 0;
+            event_lines.push(event.short_summary(&ctx.data().mongo).await?);
         }
     }
 
@@ -248,7 +245,6 @@ pub(crate) async fn register_user(
     let TrueSkillRating {
         rating,
         uncertainty,
-        ..
     } = DEFAULT_RATING;
 
     let LeagueInfo {

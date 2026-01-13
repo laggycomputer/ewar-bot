@@ -165,19 +165,15 @@ pub(crate) async fn fsck(
         ctx.reply(to_send).await?;
     }
 
-    let league_info = match ctx
+    let Some(league_info) = ctx
         .data()
         .mongo
         .collection::<LeagueInfo>("league_info")
         .find_one(doc! {})
-        .await?
-    {
-        None => {
+        .await? else {
             ctx.reply("league_info DNE").await?;
             return Ok(());
-        }
-        Some(info) => info,
-    };
+        };
 
     if league_info.available_event_number != first_missing_event {
         ctx.reply(format!("league_info available event number {} != actual {first_missing_event}, INSPECT AND FIX",
@@ -252,20 +248,16 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         .await?
         .expect("league_info struct missing");
 
-    let victim_event = match ctx
+    let Some(victim_event) = ctx
         .data()
         .mongo
         .collection::<StandingEvent>("events")
         .find_one(doc! { "_id": available_event_number - 1 })
-        .await?
-    {
-        None => {
+        .await? else {
             ctx.reply("latest event DNE; you have a major issue, fsck now")
                 .await?;
             return Ok(());
-        }
-        Some(event) => event,
-    };
+        };
 
     let handle = ctx.send(CreateReply::default()
         .embed(base_embed(ctx)
