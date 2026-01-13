@@ -54,7 +54,7 @@ impl PaginatorOptions {
 }
 
 impl EmbedLinePaginator {
-    pub(crate) fn new(lines: Vec<Box<str>>, options: PaginatorOptions) -> EmbedLinePaginator {
+    pub(crate) fn new(lines: Vec<Box<str>>, options: &PaginatorOptions) -> EmbedLinePaginator {
         let mut chunks = Vec::new();
         chunks.push(String::new());
         let mut working_chunk = &mut chunks[0];

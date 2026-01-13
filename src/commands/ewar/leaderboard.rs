@@ -88,7 +88,7 @@ pub(crate) async fn leaderboard(
         lb_lines.push(format!("{}. {}", ind + 1, line).into_boxed_str());
     }
 
-    EmbedLinePaginator::new(lb_lines, PaginatorOptions::new())
+    EmbedLinePaginator::new(lb_lines, &PaginatorOptions::new())
         .run(ctx)
         .await?;
 

@@ -614,7 +614,7 @@ pub(crate) async fn log(
 
     EmbedLinePaginator::new(
         lines,
-        PaginatorOptions::new().max_lines(NonZeroUsize::new(10).unwrap()),
+        &PaginatorOptions::new().max_lines(NonZeroUsize::new(10).unwrap()),
     )
     .run(ctx)
     .await?;
