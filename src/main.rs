@@ -185,7 +185,7 @@ async fn main() {
                 }
 
                 if !guilds_to_register_in.is_empty() {
-                    for id in guilds_to_register_in.iter() {
+                    for id in &guilds_to_register_in {
                         poise::builtins::register_in_guild(ctx, &framework.options().commands, *id)
                             .await?;
                     }

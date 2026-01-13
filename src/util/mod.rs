@@ -61,7 +61,7 @@ impl StandingEvent {
         let summary = match &self.inner {
             StandingEventInner::GameEnd(game) => {
                 let mut looked_up = Vec::with_capacity(game.ranking.len());
-                for player_id in game.ranking.iter() {
+                for player_id in &game.ranking {
                     looked_up.push(
                         try_lookup_player(mongo, SystemID(*player_id))
                             .await?
@@ -99,7 +99,7 @@ impl StandingEvent {
                 initial_deviation,
             } => {
                 let mut looked_up = Vec::with_capacity(victims.len());
-                for player_id in victims.iter() {
+                for player_id in victims {
                     looked_up.push(
                         try_lookup_player(mongo, SystemID(*player_id))
                             .await?
@@ -118,7 +118,7 @@ impl StandingEvent {
                 reason,
             } => {
                 let mut looked_up = Vec::with_capacity(victims.len());
-                for player_id in victims.iter() {
+                for player_id in victims {
                     looked_up.push(
                         try_lookup_player(mongo, SystemID(*player_id))
                             .await?
@@ -137,7 +137,7 @@ impl StandingEvent {
                 delta_deviation,
             } => {
                 let mut looked_up = Vec::with_capacity(victims.len());
-                for player_id in victims.iter() {
+                for player_id in victims {
                     looked_up.push(
                         try_lookup_player(mongo, SystemID(*player_id))
                             .await?

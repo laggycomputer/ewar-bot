@@ -176,7 +176,7 @@ impl StandingEvent {
                     .await?;
 
                 let mut old_ratings = Vec::with_capacity(game.ranking.len());
-                for party_id in game.ranking.iter() {
+                for party_id in &game.ranking {
                     let player = try_lookup_player(mongo, SystemID(*party_id))
                         .await?
                         .expect("party to game DNE");
