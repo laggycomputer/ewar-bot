@@ -64,7 +64,7 @@ pub(crate) async fn leaderboard(
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .filter(|p| !leaderboard_blacklist.contains(&p._id))
+        .filter(|p| !leaderboard_blacklist.contains(&p.id))
         .collect_vec();
 
     if aggregate_players.is_empty() {

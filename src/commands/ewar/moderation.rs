@@ -67,18 +67,18 @@ pub(crate) async fn review(
         .unwrap();
 
     let StandingEvent {
-        _id: event_number, ..
+        id: event_number, ..
     } = ctx
         .data()
         .mongo
         .collection::<StandingEvent>("events")
         .find_one_and_update(
-            doc! { "_id": corresponding_event._id },
+            doc! { "_id": corresponding_event.id },
             doc! {
                 "$set": {
                     "approval_status": {
                         "approved": approved,
-                        "reviewer": Some(player._id),
+                        "reviewer": Some(player.id),
                     }
                 }
             },
@@ -127,7 +127,7 @@ pub(crate) async fn unreviewed(ctx: Context<'_>) -> Result<(), BotError> {
     for evt in events {
         event_lines.push(format!(
             "#{} - {}",
-            evt._id,
+            evt.id,
             evt.short_summary(&ctx.data().mongo).await?
         ));
     }
@@ -258,10 +258,10 @@ pub(crate) async fn penalize(
         .mongo
         .collection::<StandingEvent>("events")
         .insert_one(StandingEvent {
-            _id: available_event_number,
+            id: available_event_number,
             approval_status: Some(ApprovalStatus {
                 approved: true,
-                reviewer: Some(responsible_moderator._id),
+                reviewer: Some(responsible_moderator.id),
             }),
             inner: Penalty {
                 victims: vec![target],

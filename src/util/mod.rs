@@ -50,7 +50,7 @@ impl Player {
     }
 
     pub(crate) fn reference_no_discord(&self) -> Box<str> {
-        format!("{}, ID {}", remove_markdown(&self.username), self._id)
+        format!("{}, ID {}", remove_markdown(&self.username), self.id)
             .to_owned()
             .into_boxed_str()
     }

@@ -50,10 +50,10 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
         .collection::<StandingEvent>("events")
         .find(doc! {
             "$or": [
-                { "inner.Penalty.victims": looked_up._id },
-                { "inner.InactivityDecay.victims": looked_up._id },
-                { "inner.JoinLeague.victims": looked_up._id },
-                { "inner.GameEnd.ranking": looked_up._id },
+                { "inner.Penalty.victims": looked_up.id },
+                { "inner.InactivityDecay.victims": looked_up.id },
+                { "inner.JoinLeague.victims": looked_up.id },
+                { "inner.GameEnd.ranking": looked_up.id },
             ]
         })
         .sort(doc! {"_id": -1})
@@ -84,13 +84,13 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
         .mongo
         .collection::<StandingEvent>("events")
         .aggregate(vec![
-            doc! {"$match": {"inner.GameEnd.ranking": looked_up._id}},
+            doc! {"$match": {"inner.GameEnd.ranking": looked_up.id}},
             doc! {"$replaceRoot": {"newRoot": "$inner.GameEnd"}},
             doc! {
                 "$group": {
                     "_id": {
                         "$cond": {
-                            "if": {"$eq": [{"$arrayElemAt": ["$ranking", 0]}, looked_up._id]},
+                            "if": {"$eq": [{"$arrayElemAt": ["$ranking", 0]}, looked_up.id]},
                             "then": "wins",
                             "else": "losses",
                         }
@@ -142,7 +142,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
             .field("user",
                    format!("{} (ID {})",
                            remove_markdown(&looked_up.username),
-                           looked_up._id), true)
+                           looked_up.id), true)
             .field("rating stuff", format!(
                 "{} (true rating {:.2}, deviation {:.2}){}",
                 rating.format_rating(),
@@ -253,7 +253,7 @@ pub(crate) async fn register_user(
 
     // add player
     let new_player = Player {
-        _id: available_player_id,
+        id: available_player_id,
         username: proposed_name,
         rating,
         deviation: uncertainty,
@@ -273,7 +273,7 @@ pub(crate) async fn register_user(
     mongo
         .collection::<StandingEvent>("events")
         .insert_one(StandingEvent {
-            _id: available_event_number,
+            id: available_event_number,
             approval_status: Some(ApprovalStatus {
                 approved: true,
                 reviewer: None,

@@ -70,7 +70,8 @@ pub(crate) enum StandingEventInner {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct StandingEvent {
-    pub(crate) _id: EventNumber,
+    #[serde(rename = "_id")]
+    pub(crate) id: EventNumber,
     pub(crate) approval_status: Option<ApprovalStatus>,
     pub(crate) inner: StandingEventInner,
     #[serde(with = "bson::serde_helpers::datetime::FromChrono04DateTime")]
@@ -79,7 +80,8 @@ pub(crate) struct StandingEvent {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Player {
-    pub(crate) _id: PlayerID,
+    #[serde(rename = "_id")]
+    pub(crate) id: PlayerID,
     pub(crate) username: String,
     pub(crate) rating: f64,
     pub(crate) deviation: f64,

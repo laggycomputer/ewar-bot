@@ -39,7 +39,7 @@ async fn inactivity_decay_inner(mongo: &Database) -> Result<(), BotError> {
             }
         })
         .await?
-        .try_filter_map(|p| async move { Ok(Some(p._id)) })
+        .try_filter_map(|p| async move { Ok(Some(p.id)) })
         .try_collect::<Vec<_>>()
         .await?;
 
@@ -55,7 +55,7 @@ async fn inactivity_decay_inner(mongo: &Database) -> Result<(), BotError> {
     mongo
         .collection::<StandingEvent>("events")
         .insert_one(StandingEvent {
-            _id: available_event_number,
+            id: available_event_number,
             approval_status: Some(ApprovalStatus {
                 approved: true,
                 reviewer: None,

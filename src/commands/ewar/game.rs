@@ -361,7 +361,7 @@ pub(crate) async fn post(
 
     let participant_system_ids = placement_players
         .iter()
-        .map(|player| player._id)
+        .map(|player| player.id)
         .collect_vec();
 
     let signed_game = Game {
@@ -371,13 +371,13 @@ pub(crate) async fn post(
     };
 
     let event = StandingEvent {
-        _id: available_event_number,
+        id: available_event_number,
         approval_status: if poster_not_moderator {
             None
         } else {
             Some(ApprovalStatus {
                 approved: true,
-                reviewer: Some(poster_info._id),
+                reviewer: Some(poster_info.id),
             })
         },
         inner: GameEnd(signed_game),
@@ -543,7 +543,7 @@ pub(crate) async fn query(
                 base_embed(ctx)
                     .field(
                         "id",
-                        format!("game ID {}, event ID {}", game.game_id, event._id),
+                        format!("game ID {}, event ID {}", game.game_id, event.id),
                         true,
                     )
                     .field(

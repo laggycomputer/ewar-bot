@@ -111,17 +111,17 @@ pub(crate) async fn fsck(
     while let Some(out) = events.try_next().await? {
         let to_send = match try_make::<StandingEvent>(out.clone()) {
             Ok(evt) => {
-                if evt._id != first_missing_event {
+                if evt.id != first_missing_event {
                     let out = format!("event {first_missing_event} is missing");
-                    first_missing_event = evt._id + 1;
+                    first_missing_event = evt.id + 1;
                     out
                 } else {
                     first_missing_event += 1;
                     match evt.approval_status {
-                        None => first_unreviewed_event = evt._id,
+                        None => first_unreviewed_event = evt.id,
                         Some(_) => {
-                            first_unreviewed_event = if first_unreviewed_event == evt._id {
-                                evt._id + 1
+                            first_unreviewed_event = if first_unreviewed_event == evt.id {
+                                evt.id + 1
                             } else {
                                 first_unreviewed_event
                             }
@@ -260,7 +260,7 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         .embed(base_embed(ctx)
             .description(format!(
                 "**you are permanently removing event ID {}:**\n> {}\n**from the record!** please confirm (5 seconds)",
-                victim_event._id, victim_event.short_summary(&ctx.data().mongo).await?)))
+                victim_event.id, victim_event.short_summary(&ctx.data().mongo).await?)))
         .components(vec![
             CreateActionRow::Buttons(vec![
                 CreateButton::new("pop_event_confirm")
@@ -294,7 +294,7 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         .data()
         .mongo
         .collection::<StandingEvent>("events")
-        .find_one_and_delete(doc! { "_id": victim_event._id })
+        .find_one_and_delete(doc! { "_id": victim_event.id })
         .await?
     {
         None => {
@@ -305,12 +305,12 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
             let update_doc = if let GameEnd(_) = evt.inner {
                 doc! {
                     "$inc": {"available_event_number": -1, "available_game_id": -1},
-                    "$min": { "first_unreviewed_event_number": evt._id }
+                    "$min": { "first_unreviewed_event_number": evt.id }
                 }
             } else {
                 doc! {
                     "$inc": { "available_event_number": -1 },
-                    "$min": { "first_unreviewed_event_number": evt._id }
+                    "$min": { "first_unreviewed_event_number": evt.id }
                 }
             };
 
@@ -326,7 +326,7 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
 
     ctx.reply(format!(
         "ok, event {} is gone, need to reprocess to finish",
-        evt._id
+        evt.id
     ))
     .await?;
     Ok(())
