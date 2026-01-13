@@ -6,9 +6,9 @@ use serenity::all::{
     CreateInteractionResponseMessage, ReactionType,
 };
 use serenity::builder::CreateInteractionResponse;
-use std::cmp::min;
-use std::num::NonZeroUsize;
-use std::time::Duration;
+use core::cmp::min;
+use core::num::NonZeroUsize;
+use core::time::Duration;
 
 pub(crate) struct EmbedLinePaginator {
     pages: Vec<String>,

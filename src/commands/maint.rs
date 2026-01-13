@@ -11,9 +11,9 @@ use mongodb::bson::doc;
 use poise::CreateReply;
 use serde::de::DeserializeOwned;
 use serenity::all::{CreateActionRow, CreateButton, CreateInteractionResponse, ReactionType};
-use std::cmp::min;
-use std::error::Error;
-use std::time::Duration;
+use core::cmp::min;
+use core::error::Error;
+use core::time::Duration;
 
 /// attempt to advance the approve pointer (be careful)
 #[poise::command(prefix_command, slash_command, check = is_league_moderator)]

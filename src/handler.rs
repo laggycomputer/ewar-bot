@@ -4,7 +4,7 @@ use serenity::all::{
     ActivityData, ActivityType, Context, EventHandler, OnlineStatus, Permissions, Ready,
 };
 use serenity::async_trait;
-use std::time::Duration;
+use core::time::Duration;
 use tokio::time;
 
 pub(crate) struct EWarBotHandler;

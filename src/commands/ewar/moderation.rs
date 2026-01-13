@@ -15,7 +15,7 @@ use serenity::all::{
     CreateActionRow, CreateButton, CreateEmbedFooter, CreateInteractionResponse, EmojiId, GuildId,
     User,
 };
-use std::time::Duration;
+use core::time::Duration;
 
 /// League moderators: review game for league record; approve or reject
 #[poise::command(prefix_command, slash_command, check = has_system_account, check = is_league_moderator

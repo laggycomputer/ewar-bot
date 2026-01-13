@@ -23,8 +23,8 @@ use serenity::all::{
     EditMessage, Mentionable as _, ReactionType, User, UserId,
 };
 use std::collections::HashSet;
-use std::num::NonZeroUsize;
-use std::time::Duration;
+use core::num::NonZeroUsize;
+use core::time::Duration;
 use timeago::TimeUnit::Seconds;
 
 enum BadPlacementType {

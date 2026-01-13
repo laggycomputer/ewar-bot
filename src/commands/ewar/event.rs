@@ -4,7 +4,7 @@ use crate::util::paginate::{EmbedLinePaginator, PaginatorOptions};
 use crate::{BotError, Context};
 use futures::TryStreamExt as _;
 use mongodb::bson::doc;
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 
 #[poise::command(prefix_command, slash_command, subcommands("log"))]
 pub(crate) async fn event(ctx: Context<'_>) -> Result<(), BotError> {
