@@ -101,11 +101,10 @@ async fn main() {
         );
 
     let args = cmd.get_matches();
-    dotenvy::from_filename(
+    let _ = dotenvy::from_filename(
         args.get_one::<PathBuf>("config")
             .expect("config file is bad path?"),
-    )
-    .ok();
+    );
 
     let register_globally = env::var("EWAR_REGISTER_GLOBAL").is_ok();
     let guilds_to_register_in = match env::var("EWAR_REGISTER_LOCAL").is_ok() {
