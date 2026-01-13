@@ -37,7 +37,7 @@ pub(crate) async fn log(
         .limit(LOG_LIMIT)
         .await?;
     while let Some(event) = cur.try_next().await? {
-        lines.push(event.short_summary(&ctx.data().mongo).await?)
+        lines.push(event.short_summary(&ctx.data().mongo).await?);
     }
 
     EmbedLinePaginator::new(

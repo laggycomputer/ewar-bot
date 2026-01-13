@@ -137,12 +137,12 @@ async fn main() {
                 match inactivity_decay_job(mongo_uri, mongo_db).await.err() {
                     None => {}
                     Some(err) => {
-                        eprintln!("{}", err)
+                        eprintln!("{}", err);
                     }
                 }
             }
         }));
-        println!("cron job for decay ok")
+        println!("cron job for decay ok");
     }
 
     let framework = poise::Framework::<BotVars, BotError>::builder()

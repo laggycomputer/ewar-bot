@@ -129,7 +129,7 @@ async fn display_lookup_result(ctx: Context<'_>, looked_up: Player) -> Result<()
         .map(|id| UserId::from(*id).mention())
         .join(", ");
     if assoc_accounts.is_empty() {
-        assoc_accounts = String::from("<none>")
+        assoc_accounts = String::from("<none>");
     }
 
     let mut time_formatter = timeago::Formatter::new();

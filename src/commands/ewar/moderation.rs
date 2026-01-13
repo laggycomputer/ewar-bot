@@ -234,7 +234,7 @@ pub(crate) async fn penalize(
         }
         Some(ixn) => {
             ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge)
-                .await?
+                .await?;
         }
     };
 

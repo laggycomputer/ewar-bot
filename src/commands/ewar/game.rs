@@ -478,7 +478,7 @@ pub(crate) async fn whatif(
             placement_discord[index].mention(),
             placement_players[index].reference_no_discord(),
             win_chances[index] * 100.0,
-        ))
+        ));
     }
 
     leaderboard += &*format!("\n{:+.2} to true rating supply\n", rating_supply_delta);
@@ -609,7 +609,7 @@ pub(crate) async fn log(
         .limit(LOG_LIMIT)
         .await?;
     while let Some(event) = cur.try_next().await? {
-        lines.push(event.short_summary(&ctx.data().mongo).await?)
+        lines.push(event.short_summary(&ctx.data().mongo).await?);
     }
 
     EmbedLinePaginator::new(

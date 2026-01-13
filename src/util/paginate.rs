@@ -145,7 +145,7 @@ impl EmbedLinePaginator {
                 "embedinator_previous" => {
                     self.current_page -= 1;
                     if self.current_page == 0 {
-                        self.current_page = self.pages.len() as u8
+                        self.current_page = self.pages.len() as u8;
                     }
                     ixn.create_response(
                         ctx.http(),
@@ -159,7 +159,7 @@ impl EmbedLinePaginator {
                 "embedinator_next" => {
                     self.current_page += 1;
                     if self.current_page > self.pages.len() as u8 {
-                        self.current_page = 1
+                        self.current_page = 1;
                     }
                     ixn.create_response(
                         ctx.http(),

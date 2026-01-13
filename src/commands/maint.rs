@@ -285,9 +285,9 @@ pub(crate) async fn pop_event(ctx: Context<'_>) -> Result<(), BotError> {
         }
         Some(ixn) => {
             ixn.create_response(ctx.http(), CreateInteractionResponse::Acknowledge)
-                .await?
+                .await?;
         }
-    };
+    }
 
     // yes, this is declared twice but no big deal tbh
     let evt = match ctx
