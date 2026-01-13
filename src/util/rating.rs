@@ -85,7 +85,7 @@ pub(crate) fn game_affect_ratings(placement: &[TrueSkillRating]) -> Vec<TrueSkil
         ratings
             .iter()
             .enumerate()
-            .map(|(index, rating)| (&rating[..], MultiTeamOutcome::new(index + 1)))
+            .map(|(index, rating)| (&**rating, MultiTeamOutcome::new(index + 1)))
             .collect_vec()
             .as_slice(),
         &TRUESKILL_CONFIG,
