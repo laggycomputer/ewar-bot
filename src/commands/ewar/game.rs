@@ -1,6 +1,5 @@
 use crate::commands::ewar::user::try_lookup_player;
 use crate::commands::ewar::user::UserLookupType::{DiscordID, SystemID};
-use crate::ewar::game::BadPlacementType::*;
 use crate::model::StandingEventInner::GameEnd;
 use crate::model::{ApprovalStatus, Player};
 use crate::model::{Game, GameID, LeagueInfo, StandingEvent};
@@ -35,9 +34,9 @@ enum BadPlacementType {
 impl BadPlacementType {
     fn create_error_message(&self, ctx: Context<'_>) -> CreateReply {
         match self {
-            DuplicateUser => CreateReply::default()
+            Self::DuplicateUser => CreateReply::default()
                 .content(":x: same user given twice; each player has exactly one ranking!"),
-            UserNotFound { offending: user } => CreateReply::default().embed(
+            Self::UserNotFound { offending: user } => CreateReply::default().embed(
                 base_embed(ctx)
                     .description(format!("{} has no account on this bot", user.mention())),
             ),
@@ -50,14 +49,14 @@ async fn lookup_placement(
     placement: &Vec<User>,
 ) -> Result<Result<Vec<Player>, BadPlacementType>, BotError> {
     if placement.len() != placement.iter().map(|u| u.id).collect::<HashSet<_>>().len() {
-        return Ok(Err(DuplicateUser));
+        return Ok(Err(BadPlacementType::DuplicateUser));
     }
 
     let mut ret = Vec::with_capacity(placement.len());
     for user in placement {
         ret.push(
             match try_lookup_player(mongo, DiscordID(user.id.get())).await? {
-                None => return Ok(Err(UserNotFound { offending: user.id })),
+                None => return Ok(Err(BadPlacementType::UserNotFound { offending: user.id })),
                 Some(player) => player,
             },
         );
