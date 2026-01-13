@@ -1,0 +1,8 @@
+allow-dbg-in-tests = true
+allow-expect-in-tests = true
+allow-renamed-params-for = [".."]
+allow-unwrap-in-tests = true
+allowed-duplicate-crates = []
+disallowed-methods = [
+    { path = "diesel::RunQueryDsl::load", reason = "use diesel_async to run queries", replacement = "diesel_async::RunQueryDsl" }
+]
