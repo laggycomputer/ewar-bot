@@ -1,3 +1,4 @@
+//! you can just track leaderboards
 mod commands;
 mod handler;
 mod model;
