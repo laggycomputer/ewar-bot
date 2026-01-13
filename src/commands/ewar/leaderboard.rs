@@ -80,7 +80,7 @@ pub(crate) async fn leaderboard(
             player.rating_struct().format_rating()
         );
         line = if player.rating_struct().is_provisional() {
-            format!("~~{}~~", line)
+            format!("~~{line}~~")
         } else {
             line
         };

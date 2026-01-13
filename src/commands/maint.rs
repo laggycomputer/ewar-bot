@@ -38,7 +38,7 @@ pub(crate) async fn advance_pointer(
     let new_stopped_before = advance_approve_pointer(ctx.data(), stop_before).await?;
 
     ctx.reply(match stopped_before == new_stopped_before {
-        true => format!("ok, stopped at event number {} (no change)", stopped_before),
+        true => format!("ok, stopped at event number {stopped_before} (no change)"),
         false => format!(
             "ok, previously was stopped before event number {stopped_before}, \
         now stopped before event number {new_stopped_before}"
@@ -146,7 +146,7 @@ pub(crate) async fn fsck(
                 let offender: &Bson = out
                     .get("_id")
                     .expect("how does a mongo object not have an id");
-                format!("event {} is not okay:\n{:?}", offender, e)
+                format!("event {offender} is not okay:\n{e:?}")
             }
         };
         // we will never be here if everything is okay

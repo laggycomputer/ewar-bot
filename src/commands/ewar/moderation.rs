@@ -360,7 +360,7 @@ pub(crate) async fn add(
         )
         .await?;
 
-    ctx.reply(format!("ok, {} now blacklisted from leaderboard", summary))
+    ctx.reply(format!("ok, {summary} now blacklisted from leaderboard"))
         .await?;
     Ok(())
 }
@@ -402,8 +402,7 @@ pub(crate) async fn remove(
         .await?;
 
     ctx.reply(format!(
-        "ok, {} no longer blacklisted from leaderboard",
-        summary
+        "ok, {summary} no longer blacklisted from leaderboard"
     ))
     .await?;
     Ok(())
