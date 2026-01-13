@@ -497,7 +497,7 @@ pub(crate) async fn whatif(
         ));
     }
 
-    leaderboard += &*format!("\n{:+.2} to true rating supply\n", rating_supply_delta);
+    leaderboard += &*format!("\n{rating_supply_delta:+.2} to true rating supply\n");
 
     ctx.send(CreateReply::default().embed(base_embed(ctx).description(leaderboard)))
         .await?;
@@ -511,18 +511,15 @@ pub(crate) async fn query(
     ctx: Context<'_>,
     #[description = "ID of game to get"] game_id: GameID,
 ) -> Result<(), BotError> {
-    let event = match ctx
+    let Some(event) = ctx
         .data()
         .mongo
         .collection::<StandingEvent>("events")
         .find_one(doc! { "inner.GameEnd.game_id": game_id })
         .await?
-    {
-        None => {
-            ctx.reply("can't find that game").await?;
-            return Ok(());
-        }
-        Some(event) => event,
+    else {
+        ctx.reply("can't find that game").await?;
+        return Ok(());
     };
 
     let StandingEvent {
