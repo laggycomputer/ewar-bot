@@ -222,5 +222,5 @@ async fn main() {
     }
 }
 
-type BotError = Box<dyn std::error::Error + Send + Sync>;
+type BotError = Box<dyn core::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, BotVars, BotError>;
