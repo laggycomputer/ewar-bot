@@ -5,7 +5,6 @@ pub(crate) mod chrono_datetime_option_as_bson_datetime_option {
     use chrono::Utc;
     use serde::de::Error;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use std::result::Result;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<chrono::DateTime<Utc>>, D::Error>
     where

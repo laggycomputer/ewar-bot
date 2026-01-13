@@ -18,7 +18,6 @@ use serenity::all::GuildId;
 use serenity::all::{GatewayIntents, UserId};
 use serenity::Client;
 use std::collections::HashSet;
-use std::default::Default;
 use std::env;
 use std::path::PathBuf;
 use tokio_cron::{daily, Job, Scheduler};
