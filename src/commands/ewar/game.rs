@@ -95,7 +95,7 @@ pub(crate) async fn post(
     #[description = "#11, if applicable"] user11: Option<User>,
 ) -> Result<(), BotError> {
     // accept hh:mm:ss or mm:ss or ss
-    let game_time = game_time.split(":").collect_vec();
+    let game_time = game_time.split(':').collect_vec();
     if game_time.len() > 3 || game_time.iter().any(|sec| sec.is_empty()) {
         ctx.send(
             CreateReply::default()

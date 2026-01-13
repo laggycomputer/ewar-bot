@@ -101,7 +101,7 @@ async fn main() {
     let guilds_to_register_in = match env::var("EWAR_REGISTER_LOCAL").is_ok() {
         true => env::var("EWAR_GUILDS")
             .unwrap_or(String::from(""))
-            .split(",")
+            .split(',')
             .map(String::from)
             .map(|s| String::from(s.trim()))
             .map(|id| GuildId::from(id.parse::<u64>().expect("guild id not valid snowflake")))
@@ -114,7 +114,7 @@ async fn main() {
 
     let moderator_discord_ids = env::var("EWAR_LEAGUE_MODERATORS")
         .unwrap_or(String::from(""))
-        .split(",")
+        .split(',')
         .map(String::from)
         // dumb allocation but meh
         .map(|s| String::from(s.trim()))
