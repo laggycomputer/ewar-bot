@@ -24,17 +24,17 @@ pub(crate) struct PaginatorOptions {
 
 impl Default for PaginatorOptions {
     fn default() -> Self {
-        Self {
-            sep: Box::from("\n"),
-            max_lines: None,
-            char_limit: 4096,
-        }
+        Self::new()
     }
 }
 
 impl PaginatorOptions {
     pub(crate) fn new() -> Self {
-        Self::default()
+        Self {
+            sep: Box::from("\n"),
+            max_lines: None,
+            char_limit: 4096,
+        }
     }
 
     pub(crate) fn sep(mut self, sep: impl Into<Box<str>>) -> Self {
