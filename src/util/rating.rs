@@ -67,7 +67,7 @@ pub(crate) fn expected_outcome(placement: &[TrueSkillRating]) -> Vec<f64> {
     expected_score_multi_team(
         ratings
             .iter()
-            .map(|rating| &rating[..])
+            .map(|rating| &**rating)
             .collect_vec()
             .as_slice(),
         &TRUESKILL_CONFIG,
