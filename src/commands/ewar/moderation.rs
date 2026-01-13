@@ -214,13 +214,10 @@ pub(crate) async fn penalize(
     #[description = "amount of true rating to take"] amount: f64,
     #[description = "reason you're doing this"] reason: String,
 ) -> Result<(), BotError> {
-    let victim = match try_lookup_player(&ctx.data().mongo, SystemID(target)).await? {
-        None => {
+    let Some(victim) = try_lookup_player(&ctx.data().mongo, SystemID(target)).await? else {
             ctx.reply(":x: i don't know who that is").await?;
             return Ok(());
-        }
-        Some(victim) => victim,
-    };
+        };
 
     let handle = ctx.send(CreateReply::default()
         .content(format!("**you are penalizing user {} {amount} true rating for {}**\nplease confirm again, you have ten seconds",
