@@ -95,11 +95,10 @@ impl StandingEvent {
                 time_formatter.num_items(2).min_unit(Seconds);
 
                 format!(
-                    "game ID {} on <t:{}:d> ({}): {}",
+                    "game ID {} on <t:{}:d> ({}): {placement_string}",
                     game.game_id,
                     self.when.timestamp(),
                     time_formatter.convert_chrono(self.when, Utc::now()),
-                    placement_string,
                 )
             }
             StandingEventInner::JoinLeague {
